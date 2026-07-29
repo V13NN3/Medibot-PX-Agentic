@@ -97,6 +97,16 @@ export const toolDefinitions = [
     },
   },
   {
+    name: "capture_lab_photo",
+    description: "Trigger the camera to capture a photo of the lab result paper that the patient is holding up. Use this after telling the patient to hold their paper up to the camera.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "interpret_lab_results",
+    description: "Interpret the captured lab result image and explain the values to the patient. Call this after capture_lab_photo succeeds.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
     name: "log_symptom_check",
     description: "Log a symptom check conversation after discussing symptoms with the patient. Call this after the patient describes their symptoms and you've given information.",
     parameters: {
@@ -192,6 +202,17 @@ export const toolHandlers: Record<string, ToolHandler> = {
       reason: String(args.reason || ""),
     })
     return JSON.stringify(data)
+  },
+
+  capture_lab_photo: async () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("capture-lab-photo"))
+    }
+    return JSON.stringify({ triggered: true })
+  },
+
+  interpret_lab_results: async () => {
+    return JSON.stringify({ status: "processing" })
   },
 
   log_symptom_check: async (args) => {
