@@ -19,6 +19,10 @@ const VoiceButton = dynamic(
   () => import("@/components/voice/voice-button").then((m) => ({ default: m.VoiceButton })),
 )
 
+const QueueMonitor = dynamic(
+  () => import("@/components/queue-monitor").then((m) => ({ default: m.QueueMonitor })),
+)
+
 export const metadata: Metadata = {
   title: "Medibot PX",
   description: "Healthcare Assistant Robot OS",
@@ -55,6 +59,7 @@ export default function RootLayout({
         </main>
 
         <VoiceButton compact />
+        <QueueMonitor />
       </body>
     </html>
   )
