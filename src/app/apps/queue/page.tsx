@@ -71,18 +71,6 @@ export default function QueuePage() {
     }
   }
 
-  const nextServing = async () => {
-    try {
-      const res = await fetch("/api/queue/serving", { method: "POST" })
-      if (res.ok) {
-        const data = await res.json()
-        setServing(data)
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
   return (
     <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
       <div>
@@ -133,26 +121,16 @@ export default function QueuePage() {
         )}
       </button>
 
-      <Card className="flex items-center justify-between px-5 py-4" padding="none">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">&#9201;</span>
-          <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">
-              Now Serving
-            </p>
-            <p className="text-xl font-bold text-foreground tabular-nums">
-              {serving.formatted}
-            </p>
-          </div>
+      <Card className="flex items-center gap-3 px-5 py-4" padding="none">
+        <span className="text-2xl">&#9201;</span>
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+            Now Serving
+          </p>
+          <p className="text-xl font-bold text-foreground tabular-nums">
+            {serving.formatted}
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={nextServing}
-          className="px-5 py-2.5 rounded-xl bg-teal text-white text-sm font-semibold
-                     hover:bg-teal-dark transition-colors active:scale-95"
-        >
-          Next
-        </button>
       </Card>
 
       <Card padding="none" className="overflow-hidden">
