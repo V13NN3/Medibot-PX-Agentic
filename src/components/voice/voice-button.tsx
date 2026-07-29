@@ -13,6 +13,7 @@ export function VoiceButton() {
   const wsRef = useRef<WebSocket | null>(null)
   const captureRef = useRef<PcmCapture | null>(null)
   const playerRef = useRef<PcmPlayer | null>(null)
+  const mutedRef = useRef(false)
 
   stateRef.current = state
 
@@ -23,17 +24,13 @@ export function VoiceButton() {
     wsRef.current = null
     playerRef.current?.stop()
     playerRef.current = null
+    mutedRef.current = false
   }, [])
 
   const toggle = useCallback(async () => {
-    const cur = stateRef.current
-    if (cur !== "idle") {
-      if (cur === "listening") {
-        wsRef.current?.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
-        wsRef.current?.send(JSON.stringify({ type: "response.create" }))
-      }
+    if (stateRef.current !== "idle") {
+      cleanup()
       setState("idle")
-      setTimeout(cleanup, 100)
       return
     }
 
@@ -47,18 +44,28 @@ export function VoiceButton() {
       const player = new PcmPlayer()
       playerRef.current = player
 
+      player.onDrain = () => {
+        if (stateRef.current === "responding") {
+          mutedRef.current = false
+          setState("listening")
+        }
+      }
+
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data)
+
+          if (msg.type === "input_audio_buffer.speech_stopped") {
+            mutedRef.current = true
+            setState("responding")
+            ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
+            ws.send(JSON.stringify({ type: "response.create" }))
+          }
+
           if (msg.type === "response.audio.delta" && msg.delta) {
             player.enqueueBase64(msg.delta)
           }
-          if (msg.type === "response.audio.done" || msg.type === "response.done") {
-            if (stateRef.current === "listening") {
-              ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
-              ws.send(JSON.stringify({ type: "response.create" }))
-            }
-          }
+
           if (msg.type === "error") {
             console.error("[voice] Grok error:", msg.message)
           }
@@ -79,7 +86,7 @@ export function VoiceButton() {
 
       setState("listening")
       await capture.start((base64) => {
-        if (ws.readyState === WebSocket.OPEN) {
+        if (!mutedRef.current && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }))
         }
       })
@@ -101,7 +108,9 @@ export function VoiceButton() {
                     ${
                       state === "listening"
                         ? "bg-red-500 hover:bg-red-600 shadow-red-500/50"
-                        : "bg-primary hover:bg-primary-dark shadow-primary/30"
+                        : state === "idle"
+                          ? "bg-primary hover:bg-primary-dark shadow-primary/30"
+                          : "bg-amber-500 hover:bg-amber-600 shadow-amber-500/50"
                     }`}
         style={{
           animation:
@@ -132,7 +141,7 @@ export function VoiceButton() {
           )}
           {state === "responding" && (
             <>
-              Thinking
+              Speaking
               <br />
               <span className="text-sm font-normal">...</span>
             </>
@@ -144,7 +153,7 @@ export function VoiceButton() {
         {state === "idle" && <span className="animate-pulse">Tap to talk</span>}
         {state === "connecting" && "Connecting..."}
         {state === "listening" && "Listening..."}
-        {state === "responding" && "Responding..."}
+        {state === "responding" && "Speaking..."}
       </p>
     </div>
   )

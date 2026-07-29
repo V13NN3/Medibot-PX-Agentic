@@ -42,6 +42,7 @@ export class PcmPlayer {
   private context: AudioContext | null = null
   private queue: AudioBuffer[] = []
   private playing = false
+  onDrain: (() => void) | null = null
 
   private ensureContext(): AudioContext {
     if (!this.context) {
@@ -68,6 +69,7 @@ export class PcmPlayer {
   private playNext(): void {
     if (this.queue.length === 0) {
       this.playing = false
+      this.onDrain?.()
       return
     }
     this.playing = true
@@ -87,6 +89,7 @@ export class PcmPlayer {
 
   stop(): void {
     this.clear()
+    this.onDrain = null
     this.context?.close()
     this.context = null
   }
