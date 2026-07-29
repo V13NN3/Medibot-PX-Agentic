@@ -29,6 +29,7 @@ function AppointmentInner() {
   const [time, setTime] = useState("")
   const [reason, setReason] = useState("")
   const [saving, setSaving] = useState(false)
+  const [showBooking, setShowBooking] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState("")
   const [appointments, setAppointments] = useState<{
@@ -132,7 +133,33 @@ function AppointmentInner() {
         </p>
       </div>
 
-      {doctorId ? (
+      {!doctorId && !showBooking && (
+        <>
+          <p className="text-sm font-medium text-foreground">Would you like a diagnostic first?</p>
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => router.push("/apps/diagnostics?search=basic")}
+              className="flex flex-col items-center gap-1 rounded-xl bg-gray-50 dark:bg-gray-800 p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <span className="text-2xl">📏</span>
+              <span className="text-xs font-semibold text-foreground">Basic</span>
+              <span className="text-[10px] text-gray-500 text-center">Weight, height, temperature</span>
+            </button>
+            <button onClick={() => router.push("/apps/diagnostics?search=interactive")}
+              className="flex flex-col items-center gap-1 rounded-xl bg-gray-50 dark:bg-gray-800 p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <span className="text-2xl">💬</span>
+              <span className="text-xs font-semibold text-foreground">Interactive</span>
+              <span className="text-[10px] text-gray-500 text-center">Discuss your symptoms</span>
+            </button>
+            <button onClick={() => setShowBooking(true)}
+              className="flex flex-col items-center gap-1 rounded-xl bg-gray-50 dark:bg-gray-800 p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <span className="text-2xl">📅</span>
+              <span className="text-xs font-semibold text-foreground">Skip</span>
+              <span className="text-[10px] text-gray-500 text-center">Go to booking</span>
+            </button>
+          </div>
+        </>
+      )}
+
+      {doctorId || showBooking ? (
         <Card padding="md" className="flex flex-col gap-4">
           {doctor && (
             <div className="flex items-center gap-3 pb-2 border-b border-gray-100 dark:border-gray-800">

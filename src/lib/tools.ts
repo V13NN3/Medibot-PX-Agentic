@@ -97,6 +97,18 @@ export const toolDefinitions = [
     },
   },
   {
+    name: "log_symptom_check",
+    description: "Log a symptom check conversation after discussing symptoms with the patient. Call this after the patient describes their symptoms and you've given information.",
+    parameters: {
+      type: "object",
+      properties: {
+        symptoms: { type: "string", description: "The symptoms the patient described" },
+        response: { type: "string", description: "Your response/advice about the symptoms" },
+      },
+      required: ["symptoms", "response"],
+    },
+  },
+  {
     name: "navigate_to",
     description: "Navigate the screen to a specific app page, optionally with a search term to auto-fill",
     parameters: {
@@ -180,6 +192,18 @@ export const toolHandlers: Record<string, ToolHandler> = {
       reason: String(args.reason || ""),
     })
     return JSON.stringify(data)
+  },
+
+  log_symptom_check: async (args) => {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      window.sessionStorage.setItem("lastSymptomCheck", JSON.stringify({
+        symptoms: String(args.symptoms || ""),
+        response: String(args.response || ""),
+        disclaimer: true,
+        timestamp: Date.now(),
+      }))
+    }
+    return JSON.stringify({ logged: true })
   },
 
   navigate_to: async (args) => {

@@ -15,8 +15,8 @@ function DiagnosticsInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const patientId = searchParams.get("patientId")
+  const search = searchParams.get("search")
 
-  const [patientName, setPatientName] = useState("")
   const [sensors, setSensors] = useState<{
     weight_kg: number
     temperature_c: number
@@ -28,14 +28,22 @@ function DiagnosticsInner() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState("")
+  const [symptomLog, setSymptomLog] = useState<{
+    symptoms: string
+    response: string
+    timestamp: number
+  } | null>(null)
 
   useEffect(() => {
-    if (patientId) {
-      fetch("/api/patient/search?q=")
-        .then((r) => r.json())
-        .catch(() => {})
+    if (search === "interactive") {
+      try {
+        const data = sessionStorage.getItem("lastSymptomCheck")
+        if (data) setSymptomLog(JSON.parse(data))
+      } catch {
+        /* ignore */
+      }
     }
-  }, [patientId])
+  }, [search])
 
   const readSensors = async () => {
     setReading(true)
@@ -69,15 +77,119 @@ function DiagnosticsInner() {
       const data = await res.json()
       if (data.saved) {
         setSaved(true)
-        setTimeout(() => {
-          router.push(`/apps/patient`)
-        }, 1500)
+        setTimeout(() => router.push("/apps/patient"), 1500)
       }
     } catch {
       setError("Failed to save vitals")
     } finally {
       setSaving(false)
     }
+  }
+
+  if (patientId && search === "basic") {
+    return (
+      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+        <div>
+          <h2 className="text-2xl font-semibold text-foreground">Basic Diagnostic</h2>
+          <p className="text-sm text-gray-500">Measurements complete</p>
+        </div>
+
+        {!sensors && !saved && (
+          <Card padding="md" className="flex flex-col gap-4 items-center text-center">
+            <p className="text-sm text-gray-500">Reading vitals from sensors...</p>
+            <button onClick={readSensors} disabled={reading}
+              className="w-full py-4 rounded-xl bg-primary text-white font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+              {reading ? "Measuring..." : "Read Measurements"}
+            </button>
+          </Card>
+        )}
+
+        {sensors && !saved && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Weight", value: `${sensors.weight_kg} kg`, icon: "⚖️" },
+                { label: "Temperature", value: `${sensors.temperature_c} °C`, icon: "🌡️" },
+                { label: "Heart Rate", value: `${sensors.heart_rate} bpm`, icon: "💓" },
+                { label: "Oximeter", value: "Not available", icon: "⛔" },
+              ].map((v) => (
+                <Card key={v.label} padding="md" className="flex flex-col items-center gap-1 text-center">
+                  <span className="text-2xl">{v.icon}</span>
+                  <p className="text-xs text-gray-500">{v.label}</p>
+                  <p className={`text-lg font-bold ${v.value === "Not available" ? "text-gray-400" : "text-foreground"}`}>
+                    {v.value}
+                  </p>
+                </Card>
+              ))}
+            </div>
+
+            <button onClick={saveVitals} disabled={saving}
+              className="w-full py-3 rounded-xl bg-teal text-white font-semibold hover:bg-teal-dark transition-colors disabled:bg-gray-300">
+              {saving ? "Saving..." : "Save to Record"}
+            </button>
+          </>
+        )}
+
+        {saved && (
+          <div className="text-center py-8">
+            <p className="text-4xl text-success">&#10003;</p>
+            <p className="text-lg font-semibold text-foreground mt-2">Saved!</p>
+            <p className="text-sm text-gray-500">Returning to patient record...</p>
+          </div>
+        )}
+
+        {error && <p className="text-xs text-red-500 text-center">{error}</p>}
+      </div>
+    )
+  }
+
+  if (patientId && search === "interactive") {
+    return (
+      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+        <div>
+          <h2 className="text-2xl font-semibold text-foreground">Symptom Checker</h2>
+          <p className="text-sm text-gray-500">Interactive diagnostic conversation</p>
+        </div>
+
+        <Card padding="md" className="flex flex-col gap-4">
+          {symptomLog ? (
+            <>
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-1">Symptoms described</p>
+                <p className="text-sm text-foreground bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                  {symptomLog.symptoms}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-1">AI Response</p>
+                <p className="text-sm text-foreground bg-primary/5 rounded-xl p-3">
+                  {symptomLog.response}
+                </p>
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                <span>⚕️</span>
+                <p>
+                  I&apos;m an AI assistant, not a doctor. This information is for reference only.
+                  Please consult a qualified healthcare professional for proper diagnosis and treatment.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-6">
+              <p className="text-sm text-gray-500">No symptom conversation found.</p>
+              <p className="text-xs text-gray-400 mt-2">Tap the AI Companion button to discuss your symptoms.</p>
+            </div>
+          )}
+        </Card>
+
+        <button onClick={() => router.push("/apps/patient")}
+          className="w-full py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors">
+          Back to Patient Records
+        </button>
+      </div>
+    )
   }
 
   if (patientId) {
