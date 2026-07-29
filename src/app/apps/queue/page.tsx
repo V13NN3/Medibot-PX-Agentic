@@ -1,37 +1,184 @@
-import { DashboardShell } from "@/components/dashboard/dashboard-shell"
-import { StatTile } from "@/components/dashboard/stat-tile"
-import { TaskChecklist } from "@/components/dashboard/task-checklist"
-import { ActivityFeed } from "@/components/dashboard/activity-feed"
+"use client"
 
-const queueTasks = [
-  { id: "q-1", label: "Check in at the front desk", dueIn: "Now" },
-  { id: "q-2", label: "Complete the intake form", dueIn: "Before called" },
-  { id: "q-3", label: "Wait for your number to be called", dueIn: "In progress" },
-]
+import { useState, useEffect, useCallback } from "react"
+import { Card } from "@/components/ui/card"
 
-const queueHistory = [
-  { id: "qh-1", senderName: "Queue", senderInitials: "Q", snippet: "ticket A-041 was called to Room 3", timestamp: "8 min ago" },
-  { id: "qh-2", senderName: "Queue", senderInitials: "Q", snippet: "ticket A-040 completed check-in", timestamp: "22 min ago" },
-]
+interface QueueData {
+  number: number
+  formatted: string
+  nowServing: number
+  date: string
+}
 
-export default function QueueAppPage() {
+interface ServingData {
+  formatted: string
+  nowServing: number
+  currentNumber: number
+}
+
+const defaultQueue: QueueData = { number: 0, formatted: "—", nowServing: 0, date: "" }
+const defaultServing: ServingData = { formatted: "A-000", nowServing: 0, currentNumber: 0 }
+
+export default function QueuePage() {
+  const [queue, setQueue] = useState<QueueData>(defaultQueue)
+  const [serving, setServing] = useState<ServingData>(defaultServing)
+  const [loading, setLoading] = useState(false)
+  const [gettingQueue, setGettingQueue] = useState(false)
+  const [hasTicket, setHasTicket] = useState(false)
+
+  const fetchServing = useCallback(async () => {
+    try {
+      const res = await fetch("/api/queue/serving")
+      if (res.ok) {
+        const data = await res.json()
+        setServing(data)
+      }
+    } catch {
+      /* ignore polling errors */
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchServing()
+    const interval = setInterval(fetchServing, 5000)
+    return () => clearInterval(interval)
+  }, [fetchServing])
+
+  const getQueue = async () => {
+    setGettingQueue(true)
+    try {
+      const res = await fetch("/api/queue/next")
+      if (!res.ok) return
+
+      const data: QueueData = await res.json()
+      setQueue(data)
+      setServing((prev) => ({ ...prev, nowServing: data.nowServing }))
+      setHasTicket(true)
+
+      const now = new Date()
+      const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000)
+      const time = phTime.toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" })
+
+      await fetch("/api/queue/print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number: data.formatted, date: data.date, time }),
+      })
+    } catch (err) {
+      console.error("[queue] getQueue error:", err)
+    } finally {
+      setGettingQueue(false)
+    }
+  }
+
+  const nextServing = async () => {
+    try {
+      const res = await fetch("/api/queue/serving", { method: "POST" })
+      if (res.ok) {
+        const data = await res.json()
+        setServing(data)
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
-    <DashboardShell>
+    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
       <div>
         <h2 className="text-2xl font-semibold text-foreground">Queue</h2>
         <p className="text-sm text-gray-500">Get a queue number &amp; print ticket</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-2xl">
-        <StatTile label="Your Number" value="A-042" accent="primary" />
-        <StatTile label="Now Serving" value="A-039" accent="teal" />
-        <StatTile label="Est. Wait" value={12} unit="min" accent="warning" />
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="flex flex-col items-center gap-1 py-5" padding="none">
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+            Your Number
+          </p>
+          <p className="text-4xl md:text-5xl font-bold text-primary tabular-nums">
+            {queue.formatted}
+          </p>
+        </Card>
+
+        <Card className="flex flex-col items-center gap-1 py-5" padding="none">
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+            Now Serving
+          </p>
+          <p className={`text-4xl md:text-5xl font-bold tabular-nums ${
+            serving.nowServing > 0 ? "text-teal" : "text-gray-400"
+          }`}>
+            {serving.formatted}
+          </p>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start max-w-3xl">
-        <TaskChecklist tasks={queueTasks} />
-        <ActivityFeed title="Recent Calls" items={queueHistory} />
-      </div>
-    </DashboardShell>
+      <button
+        type="button"
+        onClick={getQueue}
+        disabled={gettingQueue}
+        className={`w-full py-6 rounded-2xl text-white text-xl font-bold
+                    transition-all duration-200 active:scale-[0.98]
+                    ${gettingQueue
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-primary hover:bg-primary-dark shadow-lg shadow-primary/30"
+                    }`}
+      >
+        {gettingQueue ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="animate-spin text-lg">&#9696;</span>
+            Printing...
+          </span>
+        ) : (
+          <span className="tracking-wide">GET QUEUE NUMBER</span>
+        )}
+      </button>
+
+      <Card className="flex items-center justify-between px-5 py-4" padding="none">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">&#9201;</span>
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+              Now Serving
+            </p>
+            <p className="text-xl font-bold text-foreground tabular-nums">
+              {serving.formatted}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={nextServing}
+          className="px-5 py-2.5 rounded-xl bg-teal text-white text-sm font-semibold
+                     hover:bg-teal-dark transition-colors active:scale-95"
+        >
+          Next
+        </button>
+      </Card>
+
+      <Card padding="none" className="overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Recent Calls
+          </p>
+        </div>
+        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+          {hasTicket ? (
+            <div className="px-4 py-3 flex items-center gap-3">
+              <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                Q
+              </span>
+              <p className="text-sm text-gray-600 dark:text-gray-300 flex-1">
+                Ticket <span className="font-semibold text-foreground">{queue.formatted}</span> issued
+              </p>
+              <span className="text-xs text-gray-400 shrink-0">now</span>
+            </div>
+          ) : (
+            <div className="px-4 py-8 text-center text-sm text-gray-400">
+              No calls yet. Tap &quot;Get Queue Number&quot; to start.
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
   )
 }
