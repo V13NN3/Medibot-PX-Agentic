@@ -82,6 +82,21 @@ export const toolDefinitions = [
     parameters: { type: "object", properties: {} },
   },
   {
+    name: "book_appointment",
+    description: "Book an appointment with a doctor directly. Collect patient name, doctor name, date, time, and reason from the patient first, then call this.",
+    parameters: {
+      type: "object",
+      properties: {
+        patient_name: { type: "string", description: "Patient's full name" },
+        doctor_name: { type: "string", description: "Doctor's full name to search for and book with" },
+        date: { type: "string", description: "Appointment date (YYYY-MM-DD)" },
+        time: { type: "string", description: "Appointment time (e.g., 9:30 AM)" },
+        reason: { type: "string", description: "Reason for the appointment" },
+      },
+      required: ["patient_name", "doctor_name", "date", "time"],
+    },
+  },
+  {
     name: "navigate_to",
     description: "Navigate the screen to a specific app page, optionally with a search term to auto-fill",
     parameters: {
@@ -144,6 +159,26 @@ export const toolHandlers: Record<string, ToolHandler> = {
 
   check_now_serving: async () => {
     const data = await apiGet("/api/queue/serving")
+    return JSON.stringify(data)
+  },
+
+  book_appointment: async (args) => {
+    const doctorName = String(args.doctor_name || "")
+    const docRes = await apiGet(`/api/doctors/search?q=${encodeURIComponent(doctorName)}`)
+    const doctors = (docRes.doctors || []) as Array<{ id: string; name: string }>
+    const doctorId = doctors.length > 0 ? doctors[0].id : ""
+
+    if (!doctorId) {
+      return JSON.stringify({ error: `Doctor "${doctorName}" not found` })
+    }
+
+    const data = await apiPost("/api/appointments/create", {
+      patient_name: String(args.patient_name || ""),
+      doctor_id: doctorId,
+      appointment_date: String(args.date || ""),
+      appointment_time: String(args.time || ""),
+      reason: String(args.reason || ""),
+    })
     return JSON.stringify(data)
   },
 

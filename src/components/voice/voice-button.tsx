@@ -133,7 +133,10 @@ WORKFLOW - Guide patients through these steps IN ORDER:
     - Call find_doctor with their response (name or specialty).
     - If results include available doctors: tell the patient who's available. Use navigate_to("find-doctor", { search: query }) to show the list.
     - If the doctor they want is NOT available: tell them, and ask "Would you like to schedule an appointment for when they're available?"
- 4. APPOINTMENT: If the patient agrees or the doctor is unavailable, use navigate_to("appointment") with the doctor's name in the search to let them schedule.
+ 4. APPOINTMENT: If the patient agrees or the doctor is unavailable, ask "What date and time works for you?" and "What's the reason for your visit?" Collect the details verbally.
+    - Use navigate_to("appointment", { search: doctorName }) to show the booking page with doctor pre-selected.
+    - After the patient provides date, time, and reason: call book_appointment with patient_name, doctor_name, date, time, and reason.
+    - On success: say "Your appointment is confirmed!" and navigate_to("appointment") to show the confirmation.
 5. URGENT CARE: If the patient indicates an emergency or urgent need, use navigate_to("telehealth") for a video call with a doctor instead of the queue.
 6. QUEUE: Call get_queue_number to assign a ticket with thermal print. Tell them their number.
 7. WAIT: Tell patient to wait for their number to be called. They can ask about Now Serving anytime.
