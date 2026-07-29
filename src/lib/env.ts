@@ -11,6 +11,10 @@ export const env = {
     apiKey: process.env.GOOGLE_TTS_API_KEY!,
     apiUrl: process.env.GOOGLE_TTS_API_URL!,
   },
+  grokVoice: {
+    apiKey: process.env.GROK_VOICE_API_KEY!,
+    model: process.env.GROK_VOICE_MODEL!,
+  },
   database: {
     url: process.env.DATABASE_URL!,
   },
@@ -22,6 +26,7 @@ export function validateEnv() {
   if (!env.gemma4.apiKey) missing.push("GEMMA4_API_KEY")
   if (!env.medgemma.apiKey) missing.push("MEDGEMMA_API_KEY")
   if (!env.tts.apiKey) missing.push("GOOGLE_TTS_API_KEY")
+  if (!env.grokVoice.apiKey) missing.push("GROK_VOICE_API_KEY")
   if (!env.database.url) missing.push("DATABASE_URL")
 
   if (missing.length > 0) {
