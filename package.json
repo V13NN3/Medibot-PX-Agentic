@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "relay": "node --env-file .env.local server/relay.mjs",
+    "dev:all": "next dev & node server/relay.mjs & wait",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -11,7 +13,8 @@
   "dependencies": {
     "next": "16.2.10",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

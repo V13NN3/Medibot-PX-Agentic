@@ -14,6 +14,7 @@ export const env = {
   grokVoice: {
     apiKey: process.env.GROK_VOICE_API_KEY!,
     model: process.env.GROK_VOICE_MODEL!,
+    apiUrl: process.env.GROK_VOICE_API_URL!,
   },
   database: {
     url: process.env.DATABASE_URL!,

@@ -68,3 +68,16 @@ body {
     opacity: 0.4;
   }
 }
+
+@keyframes pulse-recording {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4),
+                0 0 40px rgba(239, 68, 68, 0.15);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(239, 68, 68, 0.6),
+                0 0 70px rgba(239, 68, 68, 0.25);
+    transform: scale(1.03);
+  }
+}
