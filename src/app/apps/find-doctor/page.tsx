@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 
 interface Doctor {
@@ -11,7 +12,8 @@ interface Doctor {
   available: boolean
 }
 
-export default function FindDoctorPage() {
+function FindDoctorInner() {
+  const searchParams = useSearchParams()
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(true)
@@ -30,8 +32,14 @@ export default function FindDoctorPage() {
   }
 
   useEffect(() => {
-    fetchDoctors("")
-  }, [])
+    const searchQ = searchParams.get("search")
+    if (searchQ) {
+      setQuery(searchQ)
+      fetchDoctors(searchQ)
+    } else {
+      fetchDoctors("")
+    }
+  }, [searchParams])
 
   const available = doctors.filter((d) => d.available)
   const unavailable = doctors.filter((d) => !d.available)
@@ -114,5 +122,13 @@ export default function FindDoctorPage() {
         <p className="text-sm text-gray-400 text-center py-4">No doctors found matching &quot;{query}&quot;</p>
       )}
     </div>
+  )
+}
+
+export default function FindDoctorPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400">Loading...</div>}>
+      <FindDoctorInner />
+    </Suspense>
   )
 }
