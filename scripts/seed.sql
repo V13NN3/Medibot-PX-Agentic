@@ -11,6 +11,30 @@ INSERT INTO patients (name, dob, sex, address, contact_number) VALUES
   ('Grace Lee', '1998-04-03', 'Female', '369 Shaw Blvd, Pasig', '+639123456009'),
   ('Miguel Lopez', '1985-08-20', 'Male', '741 Ortigas Ave, Mandaluyong', '+639123456010');
 
+-- Add available column to doctors if not exists
+ALTER TABLE doctors ADD COLUMN IF NOT EXISTS available BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Update existing doctors as available
+UPDATE doctors SET available = TRUE;
+
+-- Add 2 unavailable doctors
+INSERT INTO doctors (name, specialty, avatar_initials, available) VALUES
+  ('Dr. Emily Cruz', 'Pediatrics', 'EC', false),
+  ('Dr. Mark Tan', 'Orthopedics', 'MT', false)
+ON CONFLICT DO NOTHING;
+
+-- Create appointments table if not exists
+CREATE TABLE IF NOT EXISTS appointments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  patient_name TEXT NOT NULL,
+  doctor_id UUID REFERENCES doctors(id),
+  appointment_date DATE NOT NULL,
+  appointment_time TIME NOT NULL,
+  reason TEXT,
+  status TEXT NOT NULL DEFAULT 'scheduled',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Seed vitals_log records for Debra Robertson (id will match the inserted row)
 -- We use a DO block to get the patient IDs
 DO $$

@@ -70,6 +70,19 @@ export interface Doctor {
   name: string
   specialty: string
   avatarInitials: string
+  available?: boolean
+}
+
+export interface AppointmentRecord {
+  id: string
+  patient_name: string
+  doctor_id: string
+  doctor_name?: string
+  appointment_date: string
+  appointment_time: string
+  reason?: string
+  status: string
+  created_at: string
 }
 
 export interface ScheduleItem {

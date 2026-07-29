@@ -6,9 +6,9 @@ export async function GET(req: NextRequest) {
     const q = req.nextUrl.searchParams.get("q") || ""
 
     const result = await query(
-      `SELECT id, name, specialty, avatar_initials FROM doctors
+      `SELECT id, name, specialty, avatar_initials, available FROM doctors
        WHERE LOWER(name) LIKE LOWER($1) OR LOWER(specialty) LIKE LOWER($1)
-       ORDER BY name`,
+       ORDER BY available DESC, name`,
       [`%${q}%`],
     )
 
