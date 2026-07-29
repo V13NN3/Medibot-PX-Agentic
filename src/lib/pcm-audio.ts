@@ -26,6 +26,7 @@ export class PcmCapture {
     }
 
     this.source.connect(this.processor)
+    this.processor.connect(this.context.destination)
   }
 
   stop(): void {
