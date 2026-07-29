@@ -18,8 +18,19 @@ async function apiGet(path: string): Promise<Record<string, unknown>> {
 
 export const toolDefinitions = [
   {
+    name: "search_patients",
+    description: "Search for patients by name. Returns a list of matching patients. Use this first when the patient gives their name, then ask for DOB if multiple results.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Patient's full name or partial name to search" },
+      },
+      required: ["name"],
+    },
+  },
+  {
     name: "lookup_patient",
-    description: "Look up an existing patient by name and date of birth",
+    description: "Look up an existing patient by name AND date of birth for exact match. Use after search_patients to verify identity.",
     parameters: {
       type: "object",
       properties: {
@@ -72,7 +83,7 @@ export const toolDefinitions = [
   },
   {
     name: "navigate_to",
-    description: "Navigate the screen to a specific app page",
+    description: "Navigate the screen to a specific app page, optionally with a search term to auto-fill",
     parameters: {
       type: "object",
       properties: {
@@ -81,6 +92,10 @@ export const toolDefinitions = [
           enum: ["patient", "diagnostics", "find-doctor", "queue", "appointment", "labs", "telehealth", "settings", "home"],
           description: "The app page to navigate to",
         },
+        search: {
+          type: "string",
+          description: "Optional search term to auto-fill in the page's search field (e.g., patient name)",
+        },
       },
       required: ["app"],
     },
@@ -88,6 +103,12 @@ export const toolDefinitions = [
 ]
 
 export const toolHandlers: Record<string, ToolHandler> = {
+  search_patients: async (args) => {
+    const name = encodeURIComponent(String(args.name || ""))
+    const data = await apiGet(`/api/patient/search?q=${name}`)
+    return JSON.stringify(data)
+  },
+
   lookup_patient: async (args) => {
     const data = await apiPost("/api/patient/lookup", args)
     return JSON.stringify(data)
@@ -128,7 +149,8 @@ export const toolHandlers: Record<string, ToolHandler> = {
 
   navigate_to: async (args) => {
     const app = String(args.app || "")
-    const path = app === "home" ? "/" : `/apps/${app}`
+    const search = args.search ? `?search=${encodeURIComponent(String(args.search))}` : ""
+    const path = app === "home" ? "/" : `/apps/${app}${search}`
     if (typeof window !== "undefined") {
       window.location.href = path
     }
