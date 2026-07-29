@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Menu } from "@/components/ui/menu"
@@ -13,6 +14,10 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 })
+
+const VoiceButton = dynamic(
+  () => import("@/components/voice/voice-button").then((m) => ({ default: m.VoiceButton })),
+)
 
 export const metadata: Metadata = {
   title: "Medibot PX",
@@ -48,6 +53,8 @@ export default function RootLayout({
         <main className="flex-1 flex flex-col overflow-auto">
           {children}
         </main>
+
+        <VoiceButton compact />
       </body>
     </html>
   )

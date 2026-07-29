@@ -1,5 +1,3 @@
-import { VoiceButton } from "@/components/voice/voice-button"
-
 export default function Home() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 gap-12 relative">
@@ -10,8 +8,6 @@ export default function Home() {
           check your vitals, and find your doctor.
         </p>
       </div>
-
-      <VoiceButton />
 
       <div className="absolute bottom-6 right-6">
         <ModeSwitch />

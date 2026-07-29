@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 
 type PageState = "search" | "results" | "verify" | "detail" | "new-patient"
@@ -27,7 +28,8 @@ interface VitalsRecord {
   recorded_at: string
 }
 
-export default function PatientPage() {
+function PatientInner() {
+  const searchParams = useSearchParams()
   const [pageState, setPageState] = useState<PageState>("search")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<PatientSummary[]>([])
@@ -38,6 +40,7 @@ export default function PatientPage() {
   const [vitalsHistory, setVitalsHistory] = useState<VitalsRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [newForm, setNewForm] = useState({ name: "", dob: "", sex: "Male", address: "", contact_number: "" })
+  const [initialized, setInitialized] = useState(false)
 
   const doSearch = useCallback(async (q: string) => {
     setQuery(q)
@@ -58,6 +61,18 @@ export default function PatientPage() {
       setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    if (initialized) return
+    const searchQ = searchParams.get("search")
+    if (searchQ) {
+      setInitialized(true)
+      setQuery(searchQ)
+      doSearch(searchQ)
+    } else {
+      setInitialized(true)
+    }
+  }, [searchParams, doSearch, initialized])
 
   const selectPatient = (id: string) => {
     setSelectedId(id)
@@ -329,5 +344,13 @@ export default function PatientPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function PatientPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400">Loading...</div>}>
+      <PatientInner />
+    </Suspense>
   )
 }
