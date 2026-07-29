@@ -3,18 +3,20 @@
 import { useState, useRef, useCallback } from "react"
 import { PcmCapture, PcmPlayer } from "@/lib/pcm-audio"
 
-type VoiceState = "idle" | "connecting" | "listening" | "responding"
+type VoiceState = "idle" | "connecting" | "listening" | "responding" | "error"
 
 const RELAY_URL = process.env.NEXT_PUBLIC_RELAY_URL || "ws://localhost:3002"
+const SESSION_TIMEOUT = 8000
 
 export function VoiceButton() {
   const [state, setState] = useState<VoiceState>("idle")
+  const [errorMsg, setErrorMsg] = useState("")
   const stateRef = useRef(state)
   const wsRef = useRef<WebSocket | null>(null)
   const captureRef = useRef<PcmCapture | null>(null)
   const playerRef = useRef<PcmPlayer | null>(null)
   const mutedRef = useRef(false)
-  const sessionReady = useRef(false)
+  const chunkCount = useRef(0)
 
   stateRef.current = state
 
@@ -26,18 +28,20 @@ export function VoiceButton() {
     playerRef.current?.stop()
     playerRef.current = null
     mutedRef.current = false
-    sessionReady.current = false
+    chunkCount.current = 0
   }, [])
 
   const toggle = useCallback(async () => {
-    if (stateRef.current !== "idle") {
+    if (stateRef.current !== "idle" && stateRef.current !== "error") {
       cleanup()
       setState("idle")
+      setErrorMsg("")
       return
     }
 
     setState("connecting")
-    sessionReady.current = false
+    setErrorMsg("")
+    chunkCount.current = 0
 
     const ws = new WebSocket(RELAY_URL)
     wsRef.current = ws
@@ -49,10 +53,22 @@ export function VoiceButton() {
 
     player.onDrain = () => {
       if (stateRef.current === "responding") {
+        console.log("[voice] playback drained, resuming listening")
         mutedRef.current = false
         setState("listening")
       }
     }
+
+    let sessionTimedOut = false
+    const sessionTimer = setTimeout(() => {
+      if (!sessionTimedOut && stateRef.current === "connecting") {
+        sessionTimedOut = true
+        console.warn("[voice] session timeout — no session.updated received")
+        cleanup()
+        setState("error")
+        setErrorMsg("Can't connect to voice relay. Is `npm run relay` running?")
+      }
+    }, SESSION_TIMEOUT)
 
     ws.onmessage = (e) => {
       try {
@@ -64,6 +80,7 @@ export function VoiceButton() {
         }
 
         if (msg.type === "session.created") {
+          console.log("[voice] session.created → sending session.update")
           ws.send(JSON.stringify({
             type: "session.update",
             session: {
@@ -77,20 +94,33 @@ export function VoiceButton() {
         }
 
         if (msg.type === "session.updated") {
-          sessionReady.current = true
+          clearTimeout(sessionTimer)
+          console.log("[voice] session.updated → starting audio capture")
           setState("listening")
           capture.start((base64) => {
+            chunkCount.current++
             if (!mutedRef.current && ws.readyState === WebSocket.OPEN) {
+              if (chunkCount.current % 10 === 1) {
+                console.log("[voice] sending audio chunk #" + chunkCount.current)
+              }
               ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }))
             }
-          }).catch(() => {
+          }).catch((err) => {
+            console.error("[voice] capture.start failed:", err)
             cleanup()
-            setState("idle")
+            setState("error")
+            setErrorMsg("Microphone error: " + err.message)
           })
           return
         }
 
+        if (msg.type === "input_audio_buffer.speech_started") {
+          console.log("[voice] VAD: speech_started")
+          return
+        }
+
         if (msg.type === "input_audio_buffer.speech_stopped") {
+          console.log("[voice] VAD: speech_stopped → committing + creating response")
           mutedRef.current = true
           setState("responding")
           ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
@@ -98,29 +128,55 @@ export function VoiceButton() {
           return
         }
 
+        if (msg.type === "response.created") {
+          console.log("[voice] response.created")
+          return
+        }
+
         if (msg.type === "response.output_audio.delta" && msg.delta) {
+          console.log("[voice] audio delta:", msg.delta.length, "bytes")
           player.enqueueBase64(msg.delta)
           return
         }
 
+        if (msg.type === "response.done") {
+          console.log("[voice] response.done")
+          return
+        }
+
         if (msg.type === "error") {
-          console.error("[voice] Grok error:", msg.message)
+          console.error("[voice] Grok error:", msg.error?.message || msg.message)
         }
       } catch {
         /* ignore parse errors */
       }
     }
 
-    ws.onclose = () => {
-      cleanup()
-      setState("idle")
+    ws.onopen = () => {
+      console.log("[voice] WebSocket connected, waiting for session.created...")
     }
 
-    ws.onerror = () => {
+    ws.onclose = (e) => {
+      clearTimeout(sessionTimer)
+      console.log("[voice] WebSocket closed:", e.code, e.reason)
       cleanup()
-      setState("idle")
+      if (stateRef.current !== "idle") {
+        setState("idle")
+      }
+    }
+
+    ws.onerror = (e) => {
+      clearTimeout(sessionTimer)
+      console.error("[voice] WebSocket error:", e)
+      cleanup()
+      setState("error")
+      setErrorMsg("WebSocket connection failed. Is `npm run relay` running?")
     }
   }, [cleanup])
+
+  const isIdle = state === "idle"
+  const isListening = state === "listening"
+  const isError = state === "error"
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -131,23 +187,23 @@ export function VoiceButton() {
                     flex items-center justify-center
                     shadow-lg transition-all duration-300 active:scale-95 cursor-pointer
                     ${
-                      state === "listening"
-                        ? "bg-red-500 hover:bg-red-600 shadow-red-500/50"
-                        : state === "idle"
-                          ? "bg-primary hover:bg-primary-dark shadow-primary/30"
-                          : "bg-amber-500 hover:bg-amber-600 shadow-amber-500/50"
+                      isError
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : isListening
+                          ? "bg-red-500 hover:bg-red-600 shadow-red-500/50"
+                          : "bg-primary hover:bg-primary-dark shadow-primary/30"
                     }`}
         style={{
           animation:
-            state === "idle"
+            isIdle
               ? "pulse-glow 2.5s ease-in-out infinite"
-              : state === "listening"
+              : isListening
                 ? "pulse-recording 1.2s ease-in-out infinite"
                 : "none",
         }}
       >
         <span className="text-center leading-tight">
-          {state === "idle" && (
+          {isIdle && (
             <>
               A.I.
               <br />
@@ -157,7 +213,7 @@ export function VoiceButton() {
           {state === "connecting" && (
             <span className="animate-spin text-2xl">&#9696;</span>
           )}
-          {state === "listening" && (
+          {isListening && (
             <>
               Listening
               <br />
@@ -171,15 +227,28 @@ export function VoiceButton() {
               <span className="text-sm font-normal">...</span>
             </>
           )}
+          {isError && (
+            <>
+              Error
+              <br />
+              <span className="text-sm font-normal">tap to retry</span>
+            </>
+          )}
         </span>
       </button>
 
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 tracking-wider uppercase">
-        {state === "idle" && <span className="animate-pulse">Tap to talk</span>}
-        {state === "connecting" && "Connecting..."}
-        {state === "listening" && "Listening..."}
-        {state === "responding" && "Speaking..."}
-      </p>
+      {isError && errorMsg ? (
+        <p className="text-xs text-red-500 max-w-[260px] text-center leading-relaxed">
+          {errorMsg}
+        </p>
+      ) : (
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 tracking-wider uppercase">
+          {isIdle && <span className="animate-pulse">Tap to talk</span>}
+          {state === "connecting" && "Connecting..."}
+          {isListening && "Listening..."}
+          {state === "responding" && "Speaking..."}
+        </p>
+      )}
     </div>
   )
 }

@@ -13,6 +13,7 @@ wss.on("connection", (clientWs) => {
   console.log("[relay] browser connected")
 
   if (!GROK_KEY) {
+    console.error("[relay] GROK_VOICE_API_KEY is not set")
     clientWs.send(JSON.stringify({ type: "error", message: "GROK_VOICE_API_KEY is not set" }))
     clientWs.close()
     return
@@ -33,9 +34,19 @@ wss.on("connection", (clientWs) => {
     if (clientWs.readyState === WebSocket.OPEN) {
       clientWs.send(str)
     }
-    const msg = JSON.parse(str)
-    if (msg.type === "ping") {
-      grokWs.send(JSON.stringify({ type: "pong" }))
+    try {
+      const msg = JSON.parse(str)
+      if (msg.type !== "input_audio_buffer.append" && msg.type !== "response.output_audio.delta") {
+        console.log("[relay] Grok → browser:", msg.type)
+      }
+      if (msg.type === "ping") {
+        grokWs.send(JSON.stringify({ type: "pong" }))
+      }
+      if (msg.type === "error") {
+        console.error("[relay] Grok error:", JSON.stringify(msg.error))
+      }
+    } catch {
+      /* ignore parse errors */
     }
   })
 
@@ -54,8 +65,17 @@ wss.on("connection", (clientWs) => {
   })
 
   clientWs.on("message", (raw) => {
-    if (connected && grokWs.readyState === WebSocket.OPEN) {
-      grokWs.send(raw.toString())
+    try {
+      const str = raw.toString()
+      const msg = JSON.parse(str)
+      if (msg.type !== "input_audio_buffer.append") {
+        console.log("[relay] browser → Grok:", msg.type)
+      }
+      if (connected && grokWs.readyState === WebSocket.OPEN) {
+        grokWs.send(str)
+      }
+    } catch {
+      /* ignore parse errors */
     }
   })
 
