@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react"
 import { PcmCapture, PcmPlayer } from "@/lib/pcm-audio"
+import { toolDefinitions, toolHandlers } from "@/lib/tools"
 
 type VoiceState = "idle" | "connecting" | "listening" | "responding" | "error"
 
@@ -21,6 +22,9 @@ export function VoiceButton() {
   const chunkCount = useRef(0)
   const silenceFrames = useRef(0)
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const functionCallId = useRef("")
+  const functionCallName = useRef("")
+  const functionCallArgs = useRef("")
 
   stateRef.current = state
 
@@ -92,7 +96,7 @@ export function VoiceButton() {
       }
     }, SESSION_TIMEOUT)
 
-    ws.onmessage = (e) => {
+    ws.onmessage = async (e) => {
       try {
         const msg = JSON.parse(e.data)
 
@@ -112,12 +116,20 @@ export function VoiceButton() {
               output_audio_format: "pcm16",
               instructions: `You are Medibot PX — Your Healthcare Assistant Robot.
 
-Personality & Role:
-- You are a friendly, professional healthcare assistant robot deployed in a hospital.
-- When greeting the user for the first time, say exactly: "This is Medibot PX — Your Healthcare Assistant Robot — I'm here to help you register, check your vitals, and find your doctor."
-- You help patients register, check vitals, find doctors, manage appointments, and navigate the hospital.
-- Keep responses concise, warm, and helpful. Use a calm, reassuring tone.
-- Never mention Grok, xAI, or any AI company. You are Medibot PX, a medical assistant robot.`,
+WORKFLOW - Guide patients through these steps IN ORDER:
+1. PATIENT CHECK: Ask for name and date of birth. Use lookup_patient to check if existing. If new, ask for details and call create_patient.
+2. VITALS: Ask patient to step onto the sensors. Call read_vitals.
+3. DOCTOR: Ask if they have a specific doctor or need a specialist. Use find_doctor.
+4. QUEUE: Call get_queue_number to assign a ticket with thermal print. Tell them their number.
+5. WAIT: Tell patient to wait for their number. They can ask about Now Serving anytime.
+
+PERSONALITY:
+- Friendly, professional, calm, reassuring.
+- First greeting must say: "This is Medibot PX — Your Healthcare Assistant Robot — I'm here to help you register, check your vitals, and find your doctor."
+- Use TOOLS to perform actions. Wait for tool results before continuing.
+- Keep responses concise and warm.
+- Never mention Grok, xAI, or any AI company. You are Medibot PX.`,
+              tools: toolDefinitions,
             },
           }))
           return
@@ -179,6 +191,70 @@ Personality & Role:
 
         if (msg.type === "response.created") {
           console.log("[voice] response.created")
+          return
+        }
+
+        if (msg.type === "response.function_call_arguments.start") {
+          functionCallId.current = msg.call_id || ""
+          functionCallName.current = msg.function_name || ""
+          functionCallArgs.current = ""
+          console.log("[voice] function_call start:", msg.function_name)
+          return
+        }
+
+        if (msg.type === "response.function_call_arguments.delta") {
+          functionCallArgs.current += msg.delta || ""
+          return
+        }
+
+        if (msg.type === "response.function_call_arguments.done") {
+          const name = functionCallName.current
+          const callId = functionCallId.current
+          const raw = functionCallArgs.current
+
+          console.log("[voice] function_call done:", name)
+
+          functionCallId.current = ""
+          functionCallName.current = ""
+          functionCallArgs.current = ""
+
+          try {
+            const args = raw ? JSON.parse(raw) : {}
+            const handler = toolHandlers[name]
+            if (!handler) {
+              console.warn("[voice] no handler for tool:", name)
+              ws.send(JSON.stringify({
+                type: "conversation.item.create",
+                item: {
+                  type: "function_call_output",
+                  call_id: callId,
+                  output: JSON.stringify({ error: `Unknown tool: ${name}` }),
+                },
+              }))
+            } else {
+              const output = await handler(args)
+              ws.send(JSON.stringify({
+                type: "conversation.item.create",
+                item: {
+                  type: "function_call_output",
+                  call_id: callId,
+                  output,
+                },
+              }))
+            }
+          } catch (err) {
+            console.error("[voice] function_call error:", err)
+            ws.send(JSON.stringify({
+              type: "conversation.item.create",
+              item: {
+                type: "function_call_output",
+                call_id: callId,
+                output: JSON.stringify({ error: String(err) }),
+              },
+            }))
+          }
+
+          ws.send(JSON.stringify({ type: "response.create" }))
           return
         }
 
