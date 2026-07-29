@@ -12,6 +12,9 @@ export class PcmCapture {
   async start(onChunk: (base64: string) => void): Promise<void> {
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     this.context = new AudioContext({ sampleRate: this._sampleRate })
+    if (this.context.state === "suspended") {
+      await this.context.resume()
+    }
     this.source = this.context.createMediaStreamSource(this.stream)
     this.processor = this.context.createScriptProcessor(4096, 1, 1)
 
