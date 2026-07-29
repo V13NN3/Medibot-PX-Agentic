@@ -20,8 +20,17 @@ interface InterpretResult {
   _source?: string
 }
 
+interface UploadedLab {
+  id: string
+  file_name: string
+  file_url: string
+  notes?: string
+  uploaded_at: string
+}
+
 export default function LabsPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [uploadedLabs, setUploadedLabs] = useState<UploadedLab[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [captured, setCaptured] = useState<string | null>(null)
@@ -55,6 +64,17 @@ export default function LabsPage() {
   useEffect(() => {
     return () => { stream?.getTracks().forEach((t) => t.stop()) }
   }, [stream])
+
+  useEffect(() => {
+    fetch("/api/appointments/list")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.appointments) {
+          setUploadedLabs([])
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const handler = () => capturePhoto()
