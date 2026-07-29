@@ -29,7 +29,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-app-bg text-foreground">
+      <body className="min-h-full flex flex-col bg-app-bg text-foreground" suppressHydrationWarning>
         <header className="h-10 bg-status-bar flex items-center justify-between px-4 text-status-text text-xs font-mono shrink-0">
           <div className="flex items-center gap-3">
             <Link
