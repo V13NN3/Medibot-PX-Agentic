@@ -9,7 +9,7 @@ export class PcmCapture {
     return this._sampleRate
   }
 
-  async start(onChunk: (base64: string) => void): Promise<void> {
+  async start(onChunk: (base64: string, float32: Float32Array) => void): Promise<void> {
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     this.context = new AudioContext({ sampleRate: this._sampleRate })
     if (this.context.state === "suspended") {
@@ -22,7 +22,7 @@ export class PcmCapture {
       const input = e.inputBuffer.getChannelData(0)
       const pcm16 = float32ToPcm16(input)
       const base64 = arrayBufferToBase64(pcm16.buffer)
-      onChunk(base64)
+      onChunk(base64, input)
     }
 
     this.source.connect(this.processor)

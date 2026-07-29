@@ -7,6 +7,8 @@ type VoiceState = "idle" | "connecting" | "listening" | "responding" | "error"
 
 const RELAY_URL = process.env.NEXT_PUBLIC_RELAY_URL || "ws://localhost:3002"
 const SESSION_TIMEOUT = 8000
+const SILENCE_THRESHOLD = 0.025
+const SILENCE_FRAMES_MAX = 10
 
 export function VoiceButton() {
   const [state, setState] = useState<VoiceState>("idle")
@@ -17,8 +19,20 @@ export function VoiceButton() {
   const playerRef = useRef<PcmPlayer | null>(null)
   const mutedRef = useRef(false)
   const chunkCount = useRef(0)
+  const silenceFrames = useRef(0)
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   stateRef.current = state
+
+  const commitAndCreate = useCallback(() => {
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    console.log("[voice] committing audio buffer + creating response")
+    mutedRef.current = true
+    setState("responding")
+    ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
+    ws.send(JSON.stringify({ type: "response.create" }))
+  }, [])
 
   const cleanup = useCallback(() => {
     captureRef.current?.stop()
@@ -29,10 +43,18 @@ export function VoiceButton() {
     playerRef.current = null
     mutedRef.current = false
     chunkCount.current = 0
+    silenceFrames.current = 0
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current)
+      silenceTimerRef.current = null
+    }
   }, [])
 
   const toggle = useCallback(async () => {
     if (stateRef.current !== "idle" && stateRef.current !== "error") {
+      if (stateRef.current === "listening") {
+        commitAndCreate()
+      }
       cleanup()
       setState("idle")
       setErrorMsg("")
@@ -97,13 +119,32 @@ export function VoiceButton() {
           clearTimeout(sessionTimer)
           console.log("[voice] session.updated → starting audio capture")
           setState("listening")
-          capture.start((base64) => {
+          capture.start((base64, float32) => {
             chunkCount.current++
             if (!mutedRef.current && ws.readyState === WebSocket.OPEN) {
               if (chunkCount.current % 10 === 1) {
                 console.log("[voice] sending audio chunk #" + chunkCount.current)
               }
               ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }))
+            }
+            if (!mutedRef.current && float32) {
+              let sumSq = 0
+              for (let i = 0; i < float32.length; i++) {
+                sumSq += float32[i] * float32[i]
+              }
+              const rms = Math.sqrt(sumSq / float32.length)
+              if (rms < SILENCE_THRESHOLD) {
+                silenceFrames.current++
+                if (silenceFrames.current >= SILENCE_FRAMES_MAX) {
+                  silenceFrames.current = 0
+                  ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
+                  ws.send(JSON.stringify({ type: "response.create" }))
+                  mutedRef.current = true
+                  setState("responding")
+                }
+              } else {
+                silenceFrames.current = 0
+              }
             }
           }).catch((err) => {
             console.error("[voice] capture.start failed:", err)
