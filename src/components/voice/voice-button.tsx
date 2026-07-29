@@ -5,7 +5,7 @@ import { PcmCapture, PcmPlayer } from "@/lib/pcm-audio"
 
 type VoiceState = "idle" | "connecting" | "listening" | "responding"
 
-const RELAY_URL = process.env.NEXT_PUBLIC_RELAY_URL || "ws://localhost:3001"
+const RELAY_URL = process.env.NEXT_PUBLIC_RELAY_URL || "ws://localhost:3002"
 
 export function VoiceButton() {
   const [state, setState] = useState<VoiceState>("idle")
@@ -14,6 +14,7 @@ export function VoiceButton() {
   const captureRef = useRef<PcmCapture | null>(null)
   const playerRef = useRef<PcmPlayer | null>(null)
   const mutedRef = useRef(false)
+  const sessionReady = useRef(false)
 
   stateRef.current = state
 
@@ -25,6 +26,7 @@ export function VoiceButton() {
     playerRef.current?.stop()
     playerRef.current = null
     mutedRef.current = false
+    sessionReady.current = false
   }, [])
 
   const toggle = useCallback(async () => {
@@ -35,64 +37,87 @@ export function VoiceButton() {
     }
 
     setState("connecting")
+    sessionReady.current = false
+
     const ws = new WebSocket(RELAY_URL)
     wsRef.current = ws
 
-    ws.onopen = async () => {
-      const capture = new PcmCapture()
-      captureRef.current = capture
-      const player = new PcmPlayer()
-      playerRef.current = player
+    const capture = new PcmCapture()
+    captureRef.current = capture
+    const player = new PcmPlayer()
+    playerRef.current = player
 
-      player.onDrain = () => {
-        if (stateRef.current === "responding") {
-          mutedRef.current = false
+    player.onDrain = () => {
+      if (stateRef.current === "responding") {
+        mutedRef.current = false
+        setState("listening")
+      }
+    }
+
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data)
+
+        if (msg.type === "ping") {
+          ws.send(JSON.stringify({ type: "pong" }))
+          return
+        }
+
+        if (msg.type === "session.created") {
+          ws.send(JSON.stringify({
+            type: "session.update",
+            session: {
+              model: "grok-voice-think-fast-1.0",
+              modalities: ["text", "audio"],
+              input_audio_format: "pcm16",
+              output_audio_format: "pcm16",
+            },
+          }))
+          return
+        }
+
+        if (msg.type === "session.updated") {
+          sessionReady.current = true
           setState("listening")
+          capture.start((base64) => {
+            if (!mutedRef.current && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }))
+            }
+          }).catch(() => {
+            cleanup()
+            setState("idle")
+          })
+          return
         }
-      }
 
-      ws.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data)
-
-          if (msg.type === "input_audio_buffer.speech_stopped") {
-            mutedRef.current = true
-            setState("responding")
-            ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
-            ws.send(JSON.stringify({ type: "response.create" }))
-          }
-
-          if (msg.type === "response.audio.delta" && msg.delta) {
-            player.enqueueBase64(msg.delta)
-          }
-
-          if (msg.type === "error") {
-            console.error("[voice] Grok error:", msg.message)
-          }
-        } catch {
-          /* ignore parse errors */
+        if (msg.type === "input_audio_buffer.speech_stopped") {
+          mutedRef.current = true
+          setState("responding")
+          ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }))
+          ws.send(JSON.stringify({ type: "response.create" }))
+          return
         }
-      }
 
-      ws.onclose = () => {
-        cleanup()
-        setState("idle")
-      }
-
-      ws.onerror = () => {
-        cleanup()
-        setState("idle")
-      }
-
-      setState("listening")
-      await capture.start((base64) => {
-        if (!mutedRef.current && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }))
+        if (msg.type === "response.output_audio.delta" && msg.delta) {
+          player.enqueueBase64(msg.delta)
+          return
         }
-      })
+
+        if (msg.type === "error") {
+          console.error("[voice] Grok error:", msg.message)
+        }
+      } catch {
+        /* ignore parse errors */
+      }
+    }
+
+    ws.onclose = () => {
+      cleanup()
+      setState("idle")
     }
 
     ws.onerror = () => {
+      cleanup()
       setState("idle")
     }
   }, [cleanup])

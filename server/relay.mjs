@@ -1,16 +1,9 @@
-import { createServer } from "node:http"
-import { readFileSync, existsSync } from "node:fs"
-import { join, dirname } from "node:path"
-import { fileURLToPath } from "node:url"
 import { WebSocketServer } from "ws"
 import WebSocket from "ws"
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-
-const RELAY_PORT = parseInt(process.env.RELAY_PORT || "3001", 10)
+const RELAY_PORT = parseInt(process.env.RELAY_PORT || "3002", 10)
 const GROK_URL = process.env.GROK_VOICE_API_URL || "wss://api.x.ai/v1/realtime"
 const GROK_KEY = process.env.GROK_VOICE_API_KEY || ""
-const GROK_MODEL = process.env.GROK_VOICE_MODEL || "grok-voice-think-fast-1.0"
 
 const wss = new WebSocketServer({ host: "127.0.0.1", port: RELAY_PORT })
 
@@ -33,17 +26,16 @@ wss.on("connection", (clientWs) => {
   grokWs.on("open", () => {
     console.log("[relay] connected to Grok API")
     connected = true
-    grokWs.send(JSON.stringify({
-      type: "session.update",
-      session: {
-        model: GROK_MODEL,
-      },
-    }))
   })
 
   grokWs.on("message", (raw) => {
+    const str = raw.toString()
     if (clientWs.readyState === WebSocket.OPEN) {
-      clientWs.send(raw.toString())
+      clientWs.send(str)
+    }
+    const msg = JSON.parse(str)
+    if (msg.type === "ping") {
+      grokWs.send(JSON.stringify({ type: "pong" }))
     }
   })
 
