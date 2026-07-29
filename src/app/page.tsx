@@ -1,6 +1,6 @@
 export default function Home() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 gap-12">
+    <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 gap-12 relative">
       <div className="text-center space-y-3">
         <h1 className="text-4xl font-bold tracking-tight text-primary">Medibot PX</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
@@ -35,25 +35,26 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
-        <ModeOption label="Idle" active />
-        <ModeOption label="Auto" />
-        <ModeOption label="Manual" />
+      <div className="absolute bottom-6 right-6">
+        <ModeSwitch />
       </div>
     </div>
   )
 }
 
-function ModeOption({ label, active }: { label: string; active?: boolean }) {
+function ModeSwitch() {
   return (
-    <div
-      className={`rounded-lg border px-3 py-2 text-center text-xs font-medium transition-colors ${
-        active
-          ? "border-primary text-primary bg-primary/5"
-          : "border-gray-200 dark:border-gray-700 text-gray-400"
-      }`}
-    >
-      {label}
+    <div className="flex items-center gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full px-3 py-1.5 shadow-sm">
+      <span className="text-[11px] font-medium text-gray-400">Idle</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={false}
+        className="relative w-9 h-5 rounded-full bg-gray-300 dark:bg-gray-600 cursor-pointer transition-colors"
+      >
+        <span className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform translate-x-0" />
+      </button>
+      <span className="text-[11px] font-medium text-primary">Auto</span>
     </div>
   )
 }

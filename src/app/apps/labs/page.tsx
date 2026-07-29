@@ -1,11 +1,28 @@
+import { DashboardShell } from "@/components/dashboard/dashboard-shell"
+import { VitalBadge } from "@/components/dashboard/vital-badge"
+import { AnalysisTable } from "@/components/dashboard/analysis-table"
+import { analysisRows } from "@/lib/mock-labs"
+import { getRangeStatus } from "@/lib/utils"
+
 export default function LabsAppPage() {
+  const outOfRange = analysisRows.filter(
+    (row) => getRangeStatus(row.value, row.referenceLow, row.referenceHigh) === "danger",
+  ).length
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-      <h2 className="text-2xl font-semibold text-primary">Lab Results</h2>
-      <p className="text-sm text-gray-500">View X-rays, blood tests, and other lab results</p>
-      <div className="w-full max-w-sm h-48 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 text-sm">
-        Lab Results App
+    <DashboardShell>
+      <div>
+        <h2 className="text-2xl font-semibold text-foreground">Lab Results</h2>
+        <p className="text-sm text-gray-500">View X-rays, blood tests, and other lab results</p>
       </div>
-    </div>
+
+      <div className="flex flex-wrap gap-3">
+        <VitalBadge label="Panel" value="Basic Metabolic" status="normal" />
+        <VitalBadge label="Last drawn" value="2026-07-07" status="normal" />
+        <VitalBadge label="Out of range" value={outOfRange} status={outOfRange > 0 ? "danger" : "normal"} />
+      </div>
+
+      <AnalysisTable rows={analysisRows} />
+    </DashboardShell>
   )
 }

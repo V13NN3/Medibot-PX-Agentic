@@ -1,11 +1,31 @@
+import { DashboardShell } from "@/components/dashboard/dashboard-shell"
+import { ScheduleList } from "@/components/dashboard/schedule-list"
+import { TaskChecklist } from "@/components/dashboard/task-checklist"
+import { nextCheckup, scheduleItems } from "@/lib/mock-schedule"
+
+const prepTasks = [
+  { id: "prep-1", label: "Bring your insurance card", dueIn: "Before visit" },
+  { id: "prep-2", label: "List current medications", dueIn: "Before visit" },
+  { id: "prep-3", label: "Arrive 15 minutes early", dueIn: "Day of visit" },
+]
+
 export default function AppointmentAppPage() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-      <h2 className="text-2xl font-semibold text-primary">Appointments</h2>
-      <p className="text-sm text-gray-500">Schedule an appointment with your doctor</p>
-      <div className="w-full max-w-sm h-48 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-400 text-sm">
-        Appointment App
+    <DashboardShell>
+      <div>
+        <h2 className="text-2xl font-semibold text-foreground">Appointments</h2>
+        <p className="text-sm text-gray-500">Schedule an appointment with your doctor</p>
       </div>
-    </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start max-w-3xl">
+        <ScheduleList
+          title="Upcoming Appointments"
+          nextCheckup={nextCheckup}
+          items={scheduleItems}
+          ctaLabel="Book Appointment"
+        />
+        <TaskChecklist tasks={prepTasks} />
+      </div>
+    </DashboardShell>
   )
 }
