@@ -11,11 +11,8 @@ INSERT INTO patients (name, dob, sex, address, contact_number) VALUES
   ('Grace Lee', '1998-04-03', 'Female', '369 Shaw Blvd, Pasig', '+639123456009'),
   ('Miguel Lopez', '1985-08-20', 'Male', '741 Ortigas Ave, Mandaluyong', '+639123456010');
 
--- Add available column to doctors if not exists
-ALTER TABLE doctors ADD COLUMN IF NOT EXISTS available BOOLEAN NOT NULL DEFAULT TRUE;
-
 -- Update existing doctors as available
-UPDATE doctors SET available = TRUE;
+UPDATE doctors SET available = TRUE WHERE available IS NULL;
 
 -- Add 2 unavailable doctors
 INSERT INTO doctors (name, specialty, avatar_initials, available) VALUES
