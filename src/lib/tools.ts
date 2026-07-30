@@ -73,8 +73,15 @@ export const toolDefinitions = [
   },
   {
     name: "get_queue_number",
-    description: "Get a queue number for the patient and print their ticket",
-    parameters: { type: "object", properties: {} },
+    description: "Get a queue number for the patient and print their ticket. Requires patient_name and doctor_name from the workflow context.",
+    parameters: {
+      type: "object",
+      properties: {
+        patient_name: { type: "string", description: "Patient's full name from step 1" },
+        doctor_name: { type: "string", description: "Doctor's full name from step 3" },
+      },
+      required: ["patient_name", "doctor_name"],
+    },
   },
   {
     name: "check_now_serving",
@@ -167,8 +174,18 @@ export const toolHandlers: Record<string, ToolHandler> = {
     return JSON.stringify(data)
   },
 
-  get_queue_number: async () => {
-    const data = await apiGet("/api/queue/next")
+  get_queue_number: async (args) => {
+    const patientName = String(args.patient_name || "")
+    const doctorName = String(args.doctor_name || "")
+
+    let doctorId = ""
+    if (doctorName) {
+      const docRes = await apiGet(`/api/doctors/search?q=${encodeURIComponent(doctorName)}`)
+      const docs = (docRes.doctors || []) as Array<{ id: string; name: string }>
+      if (docs.length > 0) doctorId = docs[0].id
+    }
+
+    const data = await apiPost("/api/queue/next", { patient_name: patientName, doctor_id: doctorId })
     if (data.formatted) {
       const now = new Date()
       const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000)

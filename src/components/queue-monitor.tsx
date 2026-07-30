@@ -7,8 +7,7 @@ const POLL_INTERVAL = 5000
 
 export function QueueMonitor() {
   const router = useRouter()
-  const lastServing = useRef(0)
-  const lastCheckedRef = useRef("")
+  const lastServing = useRef("")
   const audioCtxRef = useRef<AudioContext | null>(null)
 
   useEffect(() => {
@@ -17,25 +16,28 @@ export function QueueMonitor() {
         const res = await fetch("/api/queue/serving")
         if (!res.ok) return
         const data = await res.json()
-        const current = data.nowServing || 0
+        const current = data.formatted || "A-000"
 
-        if (current > 0 && current !== lastServing.current) {
-          const wasZero = lastServing.current === 0
+        if (current !== "A-000" && current !== lastServing.current) {
+          const wasEmpty = lastServing.current === ""
           lastServing.current = current
 
-          if (!wasZero) {
-            const formatted = data.formatted || `A-${String(current).padStart(3, "0")}`
-
+          if (!wasEmpty) {
             if (window.location.pathname === "/") {
               router.push("/apps/queue")
             }
 
-            announce(`Now serving ${formatted}`)
+            let message = `Now serving ${current}`
+            if (data.patientName) message += `, ${data.patientName}`
+            if (data.doctorName) message += ` — please see ${data.doctorName}`
 
-            const event = new CustomEvent("queue-update", {
-              detail: { formatted, nowServing: current },
-            })
-            window.dispatchEvent(event)
+            announce(message)
+
+            window.dispatchEvent(
+              new CustomEvent("queue-update", {
+                detail: { formatted: current, patientName: data.patientName, doctorName: data.doctorName },
+              }),
+            )
           }
         }
       } catch {

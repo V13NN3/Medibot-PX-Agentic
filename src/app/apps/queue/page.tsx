@@ -47,12 +47,15 @@ export default function QueuePage() {
   const getQueue = async () => {
     setGettingQueue(true)
     try {
-      const res = await fetch("/api/queue/next")
+      const res = await fetch("/api/queue/next", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_name: "", doctor_id: "" }),
+      })
       if (!res.ok) return
 
       const data: QueueData = await res.json()
       setQueue(data)
-      setServing((prev) => ({ ...prev, nowServing: data.nowServing }))
       setHasTicket(true)
 
       const now = new Date()
