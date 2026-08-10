@@ -24,7 +24,7 @@ export function VoiceButton({ compact = false }: VoiceButtonProps) {
   const router = useRouter()
   const pathname = usePathname()
   const isHome = pathname === "/"
-  const showCompact = compact || !isHome
+  const showCompact = compact && !isHome
   const [state, setState] = useState<VoiceState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
   const stateRef = useRef(state)
@@ -395,11 +395,11 @@ PERSONALITY:
   }
 
 return (
-    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center pointer-events-none">
+    <div className="flex flex-col items-center gap-4">
       <button
         type="button"
         onClick={toggle}
-        className={`pointer-events-auto relative w-40 h-40 rounded-full text-white text-lg font-semibold
+        className={`relative w-40 h-40 rounded-full text-white text-lg font-semibold
                     flex items-center justify-center
                     shadow-lg transition-all duration-300 active:scale-95 cursor-pointer
                     ${
@@ -461,9 +461,9 @@ return (
       </button>
 
       {state === "error" && errorMsg ? (
-        <p className="pointer-events-auto text-xs text-red-500 max-w-[260px] text-center leading-relaxed">{errorMsg}</p>
+        <p className="text-xs text-red-500 max-w-[260px] text-center leading-relaxed">{errorMsg}</p>
       ) : (
-        <p className="pointer-events-auto text-xs text-gray-400 dark:text-gray-500 mt-2 tracking-wider uppercase">
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 tracking-wider uppercase">
           {state === "idle" && <span className="animate-pulse">Tap to talk</span>}
           {state === "connecting" && "Connecting..."}
           {state === "listening" && "Listening..."}
