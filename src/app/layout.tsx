@@ -58,7 +58,7 @@ export default function RootLayout({
           {children}
         </main>
 
-        <VoiceButton compact />
+        <VoiceButton />
         <QueueMonitor />
       </body>
     </html>

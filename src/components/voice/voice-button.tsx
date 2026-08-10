@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { PcmCapture, PcmPlayer } from "@/lib/pcm-audio"
 import { toolDefinitions, toolHandlers } from "@/lib/tools"
 
@@ -22,6 +22,9 @@ interface VoiceButtonProps {
 
 export function VoiceButton({ compact = false }: VoiceButtonProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const isHome = pathname === "/"
+  const showCompact = compact || !isHome
   const [state, setState] = useState<VoiceState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
   const stateRef = useRef(state)
@@ -347,7 +350,7 @@ PERSONALITY:
     }
   }, [cleanup, commitAndCreate, router])
 
-  if (compact) {
+  if (showCompact) {
     return (
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-1">
         {state !== "idle" && state !== "error" && (
@@ -360,7 +363,7 @@ PERSONALITY:
         <button
           type="button"
           onClick={toggle}
-          className={`w-14 h-14 rounded-full text-white text-sm font-bold
+          className={`relative w-14 h-14 rounded-full text-white text-sm font-bold
                       flex items-center justify-center
                       shadow-lg transition-all duration-200 active:scale-90 cursor-pointer
                       ${
@@ -374,6 +377,13 @@ PERSONALITY:
             animation: state === "listening" ? "pulse-recording 1.2s ease-in-out infinite" : "none",
           }}
         >
+          {state === "responding" && (
+            <>
+              <span aria-hidden className="absolute inset-0 rounded-full border-2 border-primary/40 wave-ring" />
+              <span aria-hidden className="absolute inset-0 rounded-full border-2 border-primary/30 wave-ring" style={{ animationDelay: "0.45s" }} />
+              <span aria-hidden className="absolute inset-0 rounded-full border-2 border-primary/20 wave-ring" style={{ animationDelay: "0.9s" }} />
+            </>
+          )}
           {state === "idle" && <span>AI</span>}
           {state === "connecting" && <span className="animate-spin">&#9696;</span>}
           {state === "listening" && <span className="text-lg">&#9673;</span>}
@@ -384,12 +394,12 @@ PERSONALITY:
     )
   }
 
-  return (
-    <div className="flex flex-col items-center gap-4">
+return (
+    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center pointer-events-none">
       <button
         type="button"
         onClick={toggle}
-        className={`w-40 h-40 rounded-full text-white text-lg font-semibold
+        className={`pointer-events-auto relative w-40 h-40 rounded-full text-white text-lg font-semibold
                     flex items-center justify-center
                     shadow-lg transition-all duration-300 active:scale-95 cursor-pointer
                     ${
@@ -408,6 +418,13 @@ PERSONALITY:
                 : "none",
         }}
       >
+        {state === "responding" && (
+          <>
+            <span aria-hidden className="absolute inset-0 rounded-full border-[6px] border-primary/40 wave-ring" />
+            <span aria-hidden className="absolute inset-0 rounded-full border-[6px] border-primary/30 wave-ring" style={{ animationDelay: "0.45s" }} />
+            <span aria-hidden className="absolute inset-0 rounded-full border-[6px] border-primary/20 wave-ring" style={{ animationDelay: "0.9s" }} />
+          </>
+        )}
         <span className="text-center leading-tight">
           {state === "idle" && (
             <>
@@ -444,9 +461,9 @@ PERSONALITY:
       </button>
 
       {state === "error" && errorMsg ? (
-        <p className="text-xs text-red-500 max-w-[260px] text-center leading-relaxed">{errorMsg}</p>
+        <p className="pointer-events-auto text-xs text-red-500 max-w-[260px] text-center leading-relaxed">{errorMsg}</p>
       ) : (
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 tracking-wider uppercase">
+        <p className="pointer-events-auto text-xs text-gray-400 dark:text-gray-500 mt-2 tracking-wider uppercase">
           {state === "idle" && <span className="animate-pulse">Tap to talk</span>}
           {state === "connecting" && "Connecting..."}
           {state === "listening" && "Listening..."}
