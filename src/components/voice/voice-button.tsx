@@ -7,7 +7,11 @@ import { toolDefinitions, toolHandlers } from "@/lib/tools"
 
 type VoiceState = "idle" | "connecting" | "listening" | "responding" | "error"
 
-const RELAY_URL = process.env.NEXT_PUBLIC_RELAY_URL || "ws://localhost:3002"
+const RELAY_URL =
+  process.env.NEXT_PUBLIC_RELAY_URL ||
+  (typeof window !== "undefined"
+    ? `ws://${window.location.hostname}:3002`
+    : "ws://localhost:3002")
 const SESSION_TIMEOUT = 8000
 const SILENCE_THRESHOLD = 0.025
 const SILENCE_FRAMES_MAX = 10
