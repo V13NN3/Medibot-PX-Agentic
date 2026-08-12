@@ -57,8 +57,23 @@ export const toolDefinitions = [
   },
   {
     name: "read_vitals",
-    description: "Read patient vitals from connected sensors (weight, temperature, oxygen saturation, heart rate)",
+    description: "Read patient vitals from connected sensors (weight, height, temperature, oxygen saturation, heart rate)",
     parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "measure_vital",
+    description: "Trigger a single vitals measurement on the Vitals app (weight scale, height, temperature, oxygen, or heart rate). Call this while guiding the patient through each measurement step.",
+    parameters: {
+      type: "object",
+      properties: {
+        measurement: {
+          type: "string",
+          enum: ["weight", "height", "temperature", "oxygen", "heart_rate"],
+          description: "Which measurement to take",
+        },
+      },
+      required: ["measurement"],
+    },
   },
   {
     name: "find_doctor",
@@ -133,7 +148,7 @@ export const toolDefinitions = [
       properties: {
         app: {
           type: "string",
-          enum: ["patient", "diagnostics", "find-doctor", "queue", "appointment", "labs", "telehealth", "settings", "home"],
+          enum: ["patient", "vitals", "diagnostics", "find-doctor", "queue", "appointment", "labs", "telehealth", "settings", "home"],
           description: "The app page to navigate to",
         },
         search: {
@@ -165,6 +180,18 @@ export const toolHandlers: Record<string, ToolHandler> = {
 
   read_vitals: async () => {
     const data = await apiGet("/api/vitals/read")
+    return JSON.stringify(data)
+  },
+
+  measure_vital: async (args) => {
+    const measurement = String(args.measurement || "all")
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("measure-vital", { detail: { measurement } }))
+    }
+    const data = await apiGet("/api/vitals/read")
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("vitals-reading", { detail: { reading: data } }))
+    }
     return JSON.stringify(data)
   },
 

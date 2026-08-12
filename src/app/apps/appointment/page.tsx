@@ -137,10 +137,10 @@ function AppointmentInner() {
         <>
           <p className="text-sm font-medium text-foreground">Would you like a diagnostic first?</p>
           <div className="grid grid-cols-3 gap-2">
-            <button onClick={() => router.push("/apps/diagnostics?search=basic")}
+            <button onClick={() => router.push("/apps/vitals")}
               className="flex flex-col items-center gap-1 rounded-xl bg-gray-50 dark:bg-gray-800 p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-              <span className="text-2xl">📏</span>
-              <span className="text-xs font-semibold text-foreground">Basic</span>
+              <span className="text-2xl">⚖️</span>
+              <span className="text-xs font-semibold text-foreground">Vitals</span>
               <span className="text-[10px] text-gray-500 text-center">Weight, height, temperature</span>
             </button>
             <button onClick={() => router.push("/apps/diagnostics?search=interactive")}

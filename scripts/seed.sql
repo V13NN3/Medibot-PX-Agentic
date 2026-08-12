@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS appointments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Add height column to vitals_log (idempotent)
+ALTER TABLE vitals_log ADD COLUMN IF NOT EXISTS height_cm NUMERIC;
+
 -- Seed vitals_log records for Debra Robertson (id will match the inserted row)
 -- We use a DO block to get the patient IDs
 DO $$

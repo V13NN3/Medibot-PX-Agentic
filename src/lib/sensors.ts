@@ -1,5 +1,6 @@
 export interface VitalsReading {
   weight_kg: number
+  height_cm: number
   temperature_c: number
   oxygen_saturation: number
   heart_rate: number
@@ -17,11 +18,13 @@ export async function readVitals(): Promise<VitalsReading> {
       const weight = readWeightI2C(bus)
       const temp = readTemperatureI2C(bus)
       const oximeter = readOximeterI2C(bus)
+      const height = readHeightI2C(bus)
 
       bus.closeSync()
 
       return {
         weight_kg: weight,
+        height_cm: height,
         temperature_c: temp,
         oxygen_saturation: oximeter.spo2,
         heart_rate: oximeter.hr,
@@ -34,6 +37,7 @@ export async function readVitals(): Promise<VitalsReading> {
 
   return {
     weight_kg: 72.5,
+    height_cm: 172,
     temperature_c: 36.7,
     oxygen_saturation: 98.0,
     heart_rate: 72,
@@ -59,4 +63,14 @@ function readOximeterI2C(bus: { readByteSync: (addr: number, cmd: number) => num
   const spo2 = bus.readByteSync(addr, 0x04)
   const hr = bus.readByteSync(addr, 0x05)
   return { spo2, hr }
+}
+
+function readHeightI2C(bus: { readByteSync: (addr: number, cmd: number) => number }): number {
+  const addr = 0x76
+  try {
+    const raw = bus.readByteSync(addr, 0x00)
+    return 100 + raw
+  } catch {
+    return 172
+  }
 }

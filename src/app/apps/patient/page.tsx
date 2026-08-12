@@ -141,9 +141,9 @@ function PatientInner() {
     }
   }
 
-  const goToDiagnostics = () => {
+  const goToVitals = () => {
     if (patient) {
-      window.location.href = `/apps/diagnostics?patientId=${patient.id}`
+      window.location.href = `/apps/vitals?patientId=${patient.id}`
     }
   }
 
@@ -205,7 +205,7 @@ function PatientInner() {
         <Card padding="md">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground">Vitals History</h3>
-            <button onClick={goToDiagnostics}
+            <button onClick={goToVitals}
               className="text-xs font-semibold text-primary hover:text-primary-dark transition-colors">
               Record Vitals &rarr;
             </button>

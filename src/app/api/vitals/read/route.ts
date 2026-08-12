@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
 
     if (patientId) {
       const result = await query(
-        `SELECT id, weight_kg, temperature_c, oxygen_saturation, heart_rate, recorded_at
+        `SELECT id, weight_kg, height_cm, temperature_c, oxygen_saturation, heart_rate, recorded_at
          FROM vitals_log
          WHERE patient_id = $1
          ORDER BY recorded_at DESC
