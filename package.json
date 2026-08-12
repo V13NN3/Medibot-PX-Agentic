@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "relay": "node --env-file .env.local server/relay.mjs",
+    "relay:telehealth": "node server/telehealth-signal.mjs",
     "dev:all": "next dev & node server/relay.mjs & wait",
     "seed": "node --env-file .env.local scripts/seed.mjs",
     "build": "next build",
