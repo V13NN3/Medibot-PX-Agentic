@@ -2,13 +2,18 @@
 
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useVoiceEngine } from "@/components/voice/voice-engine"
 
 const POLL_INTERVAL = 5000
 
 export function QueueMonitor() {
   const router = useRouter()
+  const { state: voiceState } = useVoiceEngine()
+  const lastCallAt = useRef<string | null>(null)
   const lastServing = useRef("")
   const audioCtxRef = useRef<AudioContext | null>(null)
+  const voiceStateRef = useRef(voiceState)
+  voiceStateRef.current = voiceState
 
   useEffect(() => {
     const poll = async () => {
@@ -17,29 +22,34 @@ export function QueueMonitor() {
         if (!res.ok) return
         const data = await res.json()
         const current = data.formatted || "A-000"
+        const calledAt = data.calledAt || null
 
-        if (current !== "A-000" && current !== lastServing.current) {
-          const wasEmpty = lastServing.current === ""
-          lastServing.current = current
-
-          if (!wasEmpty) {
-            if (window.location.pathname === "/") {
-              router.push("/apps/queue")
-            }
-
-            let message = `Now serving ${current}`
-            if (data.patientName) message += `, ${data.patientName}`
-            if (data.doctorName) message += ` — please see ${data.doctorName}`
-
-            announce(message)
-
-            window.dispatchEvent(
-              new CustomEvent("queue-update", {
-                detail: { formatted: current, patientName: data.patientName, doctorName: data.doctorName },
-              }),
-            )
-          }
+        if (current === "A-000") {
+          lastCallAt.current = null
+          lastServing.current = ""
+          return
         }
+
+        const isNewCall = calledAt !== lastCallAt.current
+        lastCallAt.current = calledAt
+        lastServing.current = current
+
+        if (!isNewCall) return
+        if (voiceStateRef.current !== "idle") return
+
+        router.push("/apps/queue")
+
+        let message = `Now serving ${current}`
+        if (data.patientName && data.patientName !== "Unknown") message += `, ${data.patientName}`
+        if (data.doctorName) message += ` — please see ${data.doctorName}`
+
+        announce(message)
+
+        window.dispatchEvent(
+          new CustomEvent("queue-update", {
+            detail: { formatted: current, patientName: data.patientName, doctorName: data.doctorName },
+          }),
+        )
       } catch {
         /* ignore polling errors */
       }

@@ -16,6 +16,13 @@ interface ServingData {
   currentNumber: number
 }
 
+interface Doctor {
+  id: string
+  name: string
+  specialty: string
+  available: boolean
+}
+
 const defaultQueue: QueueData = { number: 0, formatted: "—", nowServing: 0, date: "" }
 const defaultServing: ServingData = { formatted: "A-000", nowServing: 0, currentNumber: 0 }
 
@@ -25,6 +32,9 @@ export default function QueuePage() {
   const [loading, setLoading] = useState(false)
   const [gettingQueue, setGettingQueue] = useState(false)
   const [hasTicket, setHasTicket] = useState(false)
+  const [patientName, setPatientName] = useState("")
+  const [doctorId, setDoctorId] = useState("")
+  const [doctors, setDoctors] = useState<Doctor[]>([])
 
   const fetchServing = useCallback(async () => {
     try {
@@ -44,13 +54,20 @@ export default function QueuePage() {
     return () => clearInterval(interval)
   }, [fetchServing])
 
+  useEffect(() => {
+    fetch("/api/doctors/search?q=")
+      .then((r) => r.json())
+      .then((data) => setDoctors((data.doctors || []).filter((d: Doctor) => d.available)))
+      .catch(() => {})
+  }, [])
+
   const getQueue = async () => {
     setGettingQueue(true)
     try {
       const res = await fetch("/api/queue/next", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patient_name: "", doctor_id: "" }),
+        body: JSON.stringify({ patient_name: patientName, doctor_id: doctorId }),
       })
       if (!res.ok) return
 
@@ -102,6 +119,41 @@ export default function QueuePage() {
           </p>
         </Card>
       </div>
+
+      <Card className="flex flex-col gap-3 px-4 py-4" padding="none">
+        <div>
+          <label htmlFor="queue-name" className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+            Your Name <span className="normal-case font-normal text-gray-400">(optional)</span>
+          </label>
+          <input
+            id="queue-name"
+            type="text"
+            value={patientName}
+            onChange={(e) => setPatientName(e.target.value)}
+            placeholder="Enter your name"
+            maxLength={100}
+            className="mt-1 w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </div>
+        <div>
+          <label htmlFor="queue-doctor" className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+            Your Doctor <span className="normal-case font-normal text-gray-400">(optional)</span>
+          </label>
+          <select
+            id="queue-doctor"
+            value={doctorId}
+            onChange={(e) => setDoctorId(e.target.value)}
+            className="mt-1 w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            <option value="">No preference / walk-in</option>
+            {doctors.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}{d.specialty ? ` — ${d.specialty}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </Card>
 
       <button
         type="button"

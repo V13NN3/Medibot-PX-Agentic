@@ -14,7 +14,7 @@ export async function GET() {
     )
 
     if (result.rows.length === 0) {
-      return NextResponse.json({ formatted: "A-000", nowServing: 0, patientName: "", doctorName: "" })
+      return NextResponse.json({ formatted: "A-000", nowServing: 0, patientName: "", doctorName: "", calledAt: null })
     }
 
     const row = result.rows[0]
@@ -24,6 +24,7 @@ export async function GET() {
       nowServing: parseInt(row.formatted_number?.replace("A-", "") || "0", 10),
       patientName: row.patient_name,
       doctorName: row.doctor_name || "",
+      calledAt: row.called_at,
     })
   } catch (err) {
     console.error("[queue/serving] error:", err)

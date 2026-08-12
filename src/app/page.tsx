@@ -1,4 +1,5 @@
 import { VoiceButton } from "@/components/voice/voice-button"
+import { NowServingWidget } from "@/components/now-serving-widget"
 
 export default function Home() {
   return (
@@ -16,6 +17,8 @@ export default function Home() {
       <div className="absolute top-6 right-6">
         <ModeSwitch />
       </div>
+
+      <NowServingWidget />
     </div>
   )
 }
