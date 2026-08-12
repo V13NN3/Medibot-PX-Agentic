@@ -1,11 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
 import { apps } from "@/lib/apps"
+import { useMenu } from "@/components/ui/menu-context"
 
 export function Menu() {
-  const [open, setOpen] = useState(false)
+  const { isOpen, setOpen } = useMenu()
 
   const navItems = apps.filter((a) => a.id !== "settings")
   const settingsItem = apps.find((a) => a.id === "settings")
@@ -20,7 +20,7 @@ export function Menu() {
         Menu
       </button>
 
-      {open && (
+      {isOpen && (
         <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-gray-900">
           <header className="h-10 bg-status-bar flex items-center justify-between px-4 text-status-text text-xs font-mono shrink-0">
             <div className="flex items-center gap-3">

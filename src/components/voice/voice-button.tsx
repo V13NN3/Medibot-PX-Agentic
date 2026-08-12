@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { PcmCapture, PcmPlayer } from "@/lib/pcm-audio"
 import { toolDefinitions, toolHandlers } from "@/lib/tools"
+import { useMenu } from "@/components/ui/menu-context"
 
 type VoiceState = "idle" | "connecting" | "listening" | "responding" | "error"
 
@@ -24,6 +25,7 @@ export function VoiceButton({ compact = false }: VoiceButtonProps) {
   const router = useRouter()
   const pathname = usePathname()
   const isHome = pathname === "/"
+  const { isOpen: menuOpen } = useMenu()
 
   const [state, setState] = useState<VoiceState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
@@ -351,7 +353,7 @@ PERSONALITY:
   }, [cleanup, commitAndCreate, router])
 
   if (compact) {
-    if (isHome) return null
+    if (isHome && !menuOpen) return null
     return (
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-1">
         {state !== "idle" && state !== "error" && (
