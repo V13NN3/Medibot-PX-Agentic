@@ -148,7 +148,7 @@ export const toolDefinitions = [
       properties: {
         app: {
           type: "string",
-          enum: ["patient", "vitals", "diagnostics", "find-doctor", "queue", "appointment", "labs", "telehealth", "settings", "home"],
+          enum: ["patient", "vitals", "diagnostics", "find-doctor", "queue", "appointment", "labs", "rx", "telehealth", "settings", "home"],
           description: "The app page to navigate to",
         },
         search: {

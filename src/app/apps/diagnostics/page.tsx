@@ -1,113 +1,167 @@
 "use client"
 
-import { useSearchParams, useRouter } from "next/navigation"
-import { useState, useEffect, Suspense } from "react"
+import { useState, useRef, useEffect, Suspense } from "react"
 import { Card } from "@/components/ui/card"
-import { HeartDiagram } from "@/components/dashboard/heart-diagram"
-import { StatTile } from "@/components/dashboard/stat-tile"
-import { ScheduleList } from "@/components/dashboard/schedule-list"
-import { OrganRow } from "@/components/dashboard/organ-row"
-import { DashboardShell } from "@/components/dashboard/dashboard-shell"
-import { heartHotspots, heartRateTrend, bodyConditions } from "@/lib/mock-patient"
-import { nextCheckup, scheduleItems } from "@/lib/mock-schedule"
+
+const QUICK_SYMPTOMS = [
+  "Headache",
+  "Fever",
+  "Cough",
+  "Sore throat",
+  "Stomach pain",
+  "Dizziness",
+  "Fatigue",
+  "Body aches",
+  "Nausea",
+]
+
+interface ChatMessage {
+  role: "user" | "assistant"
+  content: string
+  disclaimer?: boolean
+}
 
 function DiagnosticsInner() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const search = searchParams.get("search")
-
-  const [symptomLog, setSymptomLog] = useState<{
-    symptoms: string
-    response: string
-    timestamp: number
-  } | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState("")
+  const [age, setAge] = useState("")
+  const [sex, setSex] = useState("")
+  const [loading, setLoading] = useState(false)
+  const bottomRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (search === "interactive") {
-      try {
-        const data = sessionStorage.getItem("lastSymptomCheck")
-        if (data) setSymptomLog(JSON.parse(data))
-      } catch {
-        /* ignore */
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages, loading])
+
+  const send = async (text: string) => {
+    const content = text.trim()
+    if (!content || loading) return
+    setInput("")
+    const nextMessages: ChatMessage[] = [...messages, { role: "user", content }]
+    setMessages(nextMessages)
+    setLoading(true)
+    try {
+      const res = await fetch("/api/symptom-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
+          age: age || undefined,
+          sex: sex || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.reply) {
+        setMessages((prev) => [...prev, { role: "assistant", content: data.reply, disclaimer: true }])
       }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false)
     }
-  }, [search])
-
-  if (search === "interactive") {
-    return (
-      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
-        <div>
-          <h2 className="text-2xl font-semibold text-foreground">Symptom Checker</h2>
-          <p className="text-sm text-gray-500">Interactive diagnostic conversation</p>
-        </div>
-
-        <Card padding="md" className="flex flex-col gap-4">
-          {symptomLog ? (
-            <>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-1">Symptoms described</p>
-                <p className="text-sm text-foreground bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-                  {symptomLog.symptoms}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-1">AI Response</p>
-                <p className="text-sm text-foreground bg-primary/5 rounded-xl p-3">
-                  {symptomLog.response}
-                </p>
-              </div>
-
-              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
-                <span>⚕️</span>
-                <p>
-                  I&apos;m an AI assistant, not a doctor. This information is for reference only.
-                  Please consult a qualified healthcare professional for proper diagnosis and treatment.
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-6">
-              <p className="text-sm text-gray-500">No symptom conversation found.</p>
-              <p className="text-xs text-gray-400 mt-2">Tap the AI Companion button to discuss your symptoms.</p>
-            </div>
-          )}
-        </Card>
-
-        <button onClick={() => router.push("/apps/vitals")}
-          className="w-full py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors">
-          Measure Vitals
-        </button>
-      </div>
-    )
   }
 
   return (
-    <DashboardShell>
+    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground">Overview Conditions</h2>
-        <p className="text-sm text-gray-500">Simple patient diagnostic assistant</p>
+        <h2 className="text-2xl font-semibold text-foreground">Symptom Explorer</h2>
+        <p className="text-sm text-gray-500">Talk to the assistant about your symptoms</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-        <div className="flex flex-col gap-4">
-          <HeartDiagram hotspots={heartHotspots} />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatTile label="Blood Status" value="116/70" accent="primary" trend={[70, 72, 68, 74, 71, 70]} />
-            <StatTile label="Heart Rate" value={120} unit="bpm" accent="danger" trend={heartRateTrend} />
-            <StatTile label="Blood Count" value="80/90" accent="teal" trend={[82, 85, 80, 88, 84, 90]} />
-            <StatTile label="Glucose Level" value={93} unit="mg/dL" accent="warning" trend={[88, 90, 93, 91, 95, 93]} />
-          </div>
+      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-4 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+        <span className="text-lg">⚠️</span>
+        <p>
+          <strong>Educational use only while you wait for your doctor.</strong> This is not a diagnosis.
+          Always consult a qualified healthcare professional.
+        </p>
+      </div>
+
+      <Card padding="none" className="flex flex-col gap-3 p-4">
+        <div className="flex gap-2">
+          <input
+            type="number"
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+            placeholder="Age (optional)"
+            min={0}
+            max={130}
+            className="w-24 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          />
+          <select
+            value={sex}
+            onChange={(e) => setSex(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          >
+            <option value="">Sex (optional)</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
         </div>
 
-        <ScheduleList nextCheckup={nextCheckup} items={scheduleItems} />
-      </div>
+        <div className="flex flex-wrap gap-2">
+          {QUICK_SYMPTOMS.map((s) => (
+            <button key={s} type="button" onClick={() => send(s)}
+              className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+              {s}
+            </button>
+          ))}
+        </div>
+      </Card>
 
-      <div>
-        <h3 className="text-sm font-semibold text-foreground mb-3">My Body Condition</h3>
-        <OrganRow conditions={bodyConditions} />
+      <Card padding="md" className="flex flex-col gap-3 min-h-[240px]">
+        {messages.length === 0 && !loading ? (
+          <p className="text-sm text-gray-400 text-center py-8">
+            Describe your symptom below or tap a chip to get started.
+          </p>
+        ) : (
+          messages.map((m, i) => (
+            <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+              <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                m.role === "user"
+                  ? "bg-primary text-white rounded-br-sm"
+                  : "bg-gray-100 dark:bg-gray-800 text-foreground rounded-bl-sm"
+              }`}>
+                {m.content}
+              </div>
+              {m.disclaimer && (
+                <p className="text-[10px] text-gray-400 mt-1 max-w-[85%]">
+                  I&apos;m an AI assistant, not a doctor. This information is for reference only.
+                  Please consult a qualified healthcare professional for proper diagnosis and treatment.
+                </p>
+              )}
+            </div>
+          ))
+        )}
+        {loading && (
+          <div className="flex items-start">
+            <div className="rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm bg-gray-100 dark:bg-gray-800 text-foreground">
+              <span className="inline-flex gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.15s" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.3s" }} />
+              </span>
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </Card>
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send(input)}
+          placeholder="Describe your symptom..."
+          maxLength={300}
+          className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <button type="button" onClick={() => send(input)} disabled={loading || !input.trim()}
+          className="px-5 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+          Send
+        </button>
       </div>
-    </DashboardShell>
+    </div>
   )
 }
 

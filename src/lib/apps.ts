@@ -8,6 +8,7 @@ export const apps: AppDefinition[] = [
   { id: "telehealth", name: "Telehealth", description: "Video call your doctor", icon: "📹", href: "/apps/telehealth" },
   { id: "appointment", name: "Appointments", description: "Schedule an appointment", icon: "📅", href: "/apps/appointment" },
   { id: "labs", name: "Lab Results", description: "View X-rays & blood tests", icon: "🔬", href: "/apps/labs" },
-  { id: "diagnostics", name: "Diagnostics", description: "Simple diagnostic assistant", icon: "🩺", href: "/apps/diagnostics" },
+  { id: "rx", name: "My Prescription", description: "View your prescription", icon: "💊", href: "/apps/rx" },
+  { id: "diagnostics", name: "Diagnostics", description: "Symptom explorer", icon: "🩺", href: "/apps/diagnostics" },
   { id: "settings", name: "Settings", description: "Hardware & calibration", icon: "⚙️", href: "/apps/settings" },
 ]
