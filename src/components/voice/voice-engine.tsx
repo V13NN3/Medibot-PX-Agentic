@@ -15,6 +15,7 @@ const RELAY_URL =
 const SESSION_TIMEOUT = 8000
 const SILENCE_THRESHOLD = 0.025
 const SILENCE_FRAMES_MAX = 10
+const NO_RESPONSE_TIMEOUT = 5000
 
 interface VoiceEngineValue {
   state: VoiceState
@@ -42,6 +43,9 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
   const functionCallId = useRef("")
   const functionCallName = useRef("")
   const functionCallArgs = useRef("")
+  const awaitingResponseRef = useRef(false)
+  const responseWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reAskCountRef = useRef(0)
 
   stateRef.current = state
 
@@ -65,7 +69,61 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
     mutedRef.current = false
     chunkCount.current = 0
     silenceFrames.current = 0
+    if (responseWaitTimerRef.current) {
+      clearTimeout(responseWaitTimerRef.current)
+      responseWaitTimerRef.current = null
+    }
+    awaitingResponseRef.current = false
+    reAskCountRef.current = 0
   }, [])
+
+  const clearResponseWait = useCallback(() => {
+    if (responseWaitTimerRef.current) {
+      clearTimeout(responseWaitTimerRef.current)
+      responseWaitTimerRef.current = null
+    }
+    awaitingResponseRef.current = false
+  }, [])
+
+  const handleUserResponse = useCallback(() => {
+    if (awaitingResponseRef.current) {
+      console.log("[voice] patient responded during wait window")
+      clearResponseWait()
+      reAskCountRef.current = 0
+    }
+  }, [clearResponseWait])
+
+  const startNoResponseTimer = useCallback(() => {
+    clearResponseWait()
+    awaitingResponseRef.current = true
+    console.log("[voice] waiting 5s for patient response...")
+    responseWaitTimerRef.current = setTimeout(() => {
+      awaitingResponseRef.current = false
+      const ws = wsRef.current
+      if (!ws || ws.readyState !== WebSocket.OPEN) return
+      if (stateRef.current !== "listening") return
+      if (reAskCountRef.current === 0) {
+        reAskCountRef.current = 1
+        console.log("[voice] no response — asking the patient again")
+        setState("responding")
+        ws.send(JSON.stringify({
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "[System: The patient did not respond. Please gently ask them to speak again and wait for their response.]" }],
+          },
+        }))
+        ws.send(JSON.stringify({ type: "response.create" }))
+      } else {
+        console.log("[voice] still no response — returning home and going idle")
+        reAskCountRef.current = 0
+        cleanup()
+        setState("idle")
+        router.push("/")
+      }
+    }, NO_RESPONSE_TIMEOUT)
+  }, [clearResponseWait, cleanup, router])
 
   const toggle = useCallback(async () => {
     if (stateRef.current !== "idle" && stateRef.current !== "error") {
@@ -95,6 +153,7 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
         console.log("[voice] playback drained, resuming listening")
         mutedRef.current = false
         setState("listening")
+        startNoResponseTimer()
       }
     }
 
@@ -204,6 +263,13 @@ PERSONALITY:
                 sumSq += float32[i] * float32[i]
               }
               const rms = Math.sqrt(sumSq / float32.length)
+              if (awaitingResponseRef.current) {
+                if (rms >= SILENCE_THRESHOLD) {
+                  handleUserResponse()
+                  silenceFrames.current = 0
+                }
+                return
+              }
               if (rms < SILENCE_THRESHOLD) {
                 silenceFrames.current++
                 if (silenceFrames.current >= SILENCE_FRAMES_MAX) {
@@ -228,6 +294,7 @@ PERSONALITY:
 
         if (msg.type === "input_audio_buffer.speech_started") {
           console.log("[voice] VAD: speech_started")
+          handleUserResponse()
           return
         }
 
@@ -348,7 +415,7 @@ PERSONALITY:
       setState("error")
       setErrorMsg("WebSocket connection failed. Is `npm run relay` running?")
     }
-  }, [cleanup, commitAndCreate, router])
+  }, [cleanup, commitAndCreate, router, handleUserResponse, startNoResponseTimer])
 
   return (
     <VoiceEngineContext.Provider value={{ state, errorMsg, toggle }}>
