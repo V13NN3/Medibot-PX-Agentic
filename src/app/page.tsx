@@ -13,7 +13,7 @@ export default function Home() {
 
       <VoiceButton />
 
-      <div className="absolute bottom-6 right-6">
+      <div className="absolute top-6 right-6">
         <ModeSwitch />
       </div>
     </div>

@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Menu } from "@/components/ui/menu"
 import { MenuProvider } from "@/components/ui/menu-context"
+import { VoiceEngineProvider } from "@/components/voice/voice-engine"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -41,27 +42,29 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-app-bg text-foreground" suppressHydrationWarning>
         <MenuProvider>
-          <header className="h-10 bg-status-bar flex items-center justify-between px-4 text-status-text text-xs font-mono shrink-0">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="text-[11px] font-semibold uppercase tracking-wider text-white/60 hover:text-white transition-colors"
-              >
-                Home
-              </Link>
-              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-              <span className="font-semibold uppercase tracking-wider">Idle</span>
-            </div>
-            <span className="text-[10px] text-white/40">Medibot PX v0.1.0</span>
-            <Menu />
-          </header>
+          <VoiceEngineProvider>
+            <header className="h-10 bg-status-bar flex items-center justify-between px-4 text-status-text text-xs font-mono shrink-0">
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/"
+                  className="text-[11px] font-semibold uppercase tracking-wider text-white/60 hover:text-white transition-colors"
+                >
+                  Home
+                </Link>
+                <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                <span className="font-semibold uppercase tracking-wider">Idle</span>
+              </div>
+              <span className="text-[10px] text-white/40">Medibot PX v0.1.0</span>
+              <Menu />
+            </header>
 
-          <main className="flex-1 flex flex-col overflow-auto">
-            {children}
-          </main>
+            <main className="flex-1 flex flex-col overflow-auto">
+              {children}
+            </main>
 
-          <VoiceButton compact />
-          <QueueMonitor />
+            <VoiceButton compact />
+            <QueueMonitor />
+          </VoiceEngineProvider>
         </MenuProvider>
       </body>
     </html>
