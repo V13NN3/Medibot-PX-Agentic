@@ -1,5 +1,6 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import { useVoiceEngine } from "./voice-engine"
 
 interface VoiceButtonProps {
@@ -7,9 +8,12 @@ interface VoiceButtonProps {
 }
 
 export function VoiceButton({ compact = false }: VoiceButtonProps) {
+  const pathname = usePathname()
+  const isHome = pathname === "/"
   const { state, errorMsg, toggle } = useVoiceEngine()
 
   if (compact) {
+    if (isHome) return null
     return (
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-1">
         {state !== "idle" && state !== "error" && (
