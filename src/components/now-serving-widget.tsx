@@ -54,8 +54,8 @@ export function NowServingWidget() {
     <div className="fixed bottom-6 left-6 z-40 pointer-events-none select-none">
       <div
         className={`relative flex items-center gap-5 overflow-hidden rounded-3xl shadow-2xl
-                    bg-gradient-to-br from-teal-500 to-teal-700 text-white px-7 py-5
-                    ${hasServing ? "shadow-teal-500/40" : "opacity-80"}`}
+                    bg-gradient-to-br from-amber-500 to-orange-600 text-white px-7 py-5
+                    ${hasServing ? "shadow-orange-500/40" : "opacity-80"}`}
       >
         <span
           aria-hidden
@@ -81,7 +81,7 @@ export function NowServingWidget() {
         </div>
 
         <div className="relative">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-teal-100">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-100">
             Now Serving
           </p>
           <p className="text-6xl font-black tabular-nums leading-none drop-shadow-md">
@@ -95,7 +95,7 @@ export function NowServingWidget() {
               <p className="text-2xl font-bold truncate">{patient}</p>
             )}
             {serving.doctorName && (
-              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-teal-100 truncate">
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-amber-100 truncate">
                 <span>&#128137;</span>
                 {serving.doctorName}
               </p>
