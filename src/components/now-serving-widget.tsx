@@ -51,21 +51,21 @@ export function NowServingWidget() {
 
   return (
     <div className="fixed bottom-6 left-6 z-40 pointer-events-none select-none">
-      <div className="flex items-center gap-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-800 rounded-2xl px-4 py-3 shadow-lg">
-        <span className={`w-2.5 h-2.5 rounded-full ${hasServing ? "bg-success animate-pulse" : "bg-gray-300"}`} />
+      <div className="flex items-center gap-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-gray-200 dark:border-gray-800 rounded-2xl px-6 py-4 shadow-lg">
+        <span className={`w-3.5 h-3.5 rounded-full ${hasServing ? "bg-success animate-pulse" : "bg-gray-300"}`} />
         <div>
-          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Now Serving</p>
-          <p className={`text-lg font-bold tabular-nums leading-tight ${hasServing ? "text-teal" : "text-gray-400"}`}>
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Now Serving</p>
+          <p className={`text-4xl font-bold tabular-nums leading-tight ${hasServing ? "text-teal" : "text-gray-400"}`}>
             {serving.formatted}
           </p>
         </div>
         {hasServing && (serving.patientName || serving.doctorName) && (
-          <div className="border-l border-gray-200 dark:border-gray-700 pl-3 ml-1 max-w-[180px]">
+          <div className="border-l border-gray-200 dark:border-gray-700 pl-4 ml-1 max-w-[220px]">
             {serving.patientName && serving.patientName !== "Unknown" && (
-              <p className="text-sm font-medium text-foreground truncate">{serving.patientName}</p>
+              <p className="text-xl font-semibold text-foreground truncate">{serving.patientName}</p>
             )}
             {serving.doctorName && (
-              <p className="text-[11px] text-gray-500 truncate">{serving.doctorName}</p>
+              <p className="text-sm text-gray-500 truncate">{serving.doctorName}</p>
             )}
           </div>
         )}
