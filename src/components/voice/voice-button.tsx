@@ -24,7 +24,7 @@ export function VoiceButton({ compact = false }: VoiceButtonProps) {
   const router = useRouter()
   const pathname = usePathname()
   const isHome = pathname === "/"
-  const showCompact = compact && !isHome
+
   const [state, setState] = useState<VoiceState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
   const stateRef = useRef(state)
@@ -350,7 +350,8 @@ PERSONALITY:
     }
   }, [cleanup, commitAndCreate, router])
 
-  if (showCompact) {
+  if (compact) {
+    if (isHome) return null
     return (
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-1">
         {state !== "idle" && state !== "error" && (
