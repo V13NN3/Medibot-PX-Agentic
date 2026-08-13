@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await query(
-      `SELECT id, name, dob, sex, address, contact_number, created_at
+      `SELECT id, name, dob, sex, address, contact_number, created_at, photo
        FROM patients WHERE id = $1 AND dob = $2`,
       [id, dob],
     )

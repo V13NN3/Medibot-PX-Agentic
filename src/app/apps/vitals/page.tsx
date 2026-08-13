@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation"
 import { useState, useEffect, Suspense, useCallback } from "react"
 import { Card } from "@/components/ui/card"
+import { CountdownOverlay } from "@/components/countdown-overlay"
 import { speak } from "@/lib/tts"
 
 interface Reading {
@@ -305,13 +306,7 @@ function VitalsInner() {
         </div>
       )}
 
-      {heightPhase === "countdown" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div key={countdownNum} className="countdown-num text-[180px] font-black text-white select-none">
-            {countdownNum}
-          </div>
-        </div>
-      )}
+      <CountdownOverlay number={countdownNum} show={heightPhase === "countdown"} />
     </div>
   )
 }

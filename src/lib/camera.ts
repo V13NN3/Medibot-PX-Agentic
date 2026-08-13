@@ -14,6 +14,12 @@ function isRpi(): boolean {
   return process.platform === "linux" && process.arch === "arm64"
 }
 
+export async function captureFacePhoto(): Promise<{ image_base64: string } | null> {
+  const shot = await captureStill()
+  if (!shot) return null
+  return { image_base64: shot.base64 }
+}
+
 async function captureStill(): Promise<{ base64: string; width: number; height: number } | null> {
   if (!isRpi()) return null
 

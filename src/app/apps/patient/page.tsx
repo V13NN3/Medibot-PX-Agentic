@@ -3,6 +3,8 @@
 import { useState, useCallback, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
+import { CountdownOverlay } from "@/components/countdown-overlay"
+import { speak } from "@/lib/tts"
 
 type PageState = "search" | "results" | "verify" | "detail" | "new-patient"
 
@@ -17,6 +19,7 @@ interface PatientDetail extends PatientSummary {
   address?: string
   contact_number?: string
   created_at: string
+  photo?: string
 }
 
 interface VitalsRecord {
@@ -39,8 +42,40 @@ function PatientInner() {
   const [patient, setPatient] = useState<PatientDetail | null>(null)
   const [vitalsHistory, setVitalsHistory] = useState<VitalsRecord[]>([])
   const [loading, setLoading] = useState(false)
-  const [newForm, setNewForm] = useState({ name: "", dob: "", sex: "Male", address: "", contact_number: "" })
+  const [newForm, setNewForm] = useState({ name: "", dob: "", sex: "Male", address: "", contact_number: "", photo: "" })
+  const [facePhase, setFacePhase] = useState<"idle" | "instruct" | "countdown" | "capturing">("idle")
+  const [faceCount, setFaceCount] = useState(3)
+  const [faceErr, setFaceErr] = useState("")
   const [initialized, setInitialized] = useState(false)
+
+  const captureFace = async () => {
+    if (facePhase !== "idle") return
+    setFaceErr("")
+    setFacePhase("instruct")
+    speak("Please look at the camera and smile.")
+    await new Promise((r) => setTimeout(r, 2500))
+    setFacePhase("countdown")
+    speak("Get ready. Three, two, one.")
+    for (let n = 3; n >= 1; n--) {
+      setFaceCount(n)
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+    setFacePhase("capturing")
+    speak("Please hold still")
+    try {
+      const res = await fetch("/api/camera/face", { method: "POST" })
+      const data = await res.json()
+      if (data.image_base64) {
+        setNewForm((prev) => ({ ...prev, photo: data.image_base64 }))
+      } else {
+        setFaceErr(data.error || "Capture failed")
+      }
+    } catch {
+      setFaceErr("Capture failed")
+    } finally {
+      setFacePhase("idle")
+    }
+  }
 
   const doSearch = useCallback(async (q: string) => {
     setQuery(q)
@@ -132,7 +167,7 @@ function PatientInner() {
         setPatient(data.patient)
         setVitalsHistory([])
         setPageState("detail")
-        setNewForm({ name: "", dob: "", sex: "Male", address: "", contact_number: "" })
+        setNewForm({ name: "", dob: "", sex: "Male", address: "", contact_number: "", photo: "" })
       }
     } catch {
       /* ignore */
@@ -171,9 +206,14 @@ function PatientInner() {
         </button>
 
         <Card className="flex items-center gap-4" padding="md">
-          <div className="w-14 h-14 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-semibold">
-            {patient.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
-          </div>
+          {patient.photo ? (
+            <img src={`data:image/jpeg;base64,${patient.photo}`} alt={patient.name}
+              className="w-14 h-14 shrink-0 rounded-full object-cover border border-gray-200" />
+          ) : (
+            <div className="w-14 h-14 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-semibold">
+              {patient.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
+            </div>
+          )}
           <div className="min-w-0">
             <p className="text-xs font-mono text-gray-400 uppercase tracking-wider">
               ID {patient.id.slice(0, 8)} &middot; Age {calcAge(patient.dob)} &middot; {patient.sex}
@@ -245,6 +285,26 @@ function PatientInner() {
           <p className="text-sm text-gray-500">Register a new patient</p>
         </div>
         <Card padding="md" className="flex flex-col gap-4">
+          {newForm.photo ? (
+            <div className="flex flex-col items-center gap-2">
+              <img src={`data:image/jpeg;base64,${newForm.photo}`} alt="Patient face"
+                className="w-28 h-28 rounded-full object-cover border-2 border-primary" />
+              <button onClick={captureFace} disabled={facePhase !== "idle"}
+                className="px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 text-xs font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                {facePhase === "instruct" ? "Step back..." : facePhase === "countdown" ? "Get ready..." : facePhase === "capturing" ? "Capturing..." : "Re-capture Photo"}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <button onClick={captureFace} disabled={facePhase !== "idle"}
+                className="px-5 py-3 rounded-xl bg-gray-100 border border-gray-300 text-sm font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                {facePhase === "instruct" ? "Step back..." : facePhase === "countdown" ? "Get ready..." : facePhase === "capturing" ? "Capturing..." : "📷 Capture Photo"}
+              </button>
+              <p className="text-[11px] text-gray-400">Look at the camera, we will take your photo</p>
+            </div>
+          )}
+          {faceErr && <p className="text-xs text-red-500 text-center">{faceErr}</p>}
+
           {(["name", "dob", "sex", "address", "contact_number"] as const).map((field) => (
             <div key={field}>
               <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -269,6 +329,7 @@ function PatientInner() {
             {loading ? "Registering..." : "Register Patient"}
           </button>
         </Card>
+        <CountdownOverlay number={faceCount} show={facePhase === "countdown"} />
       </div>
     )
   }

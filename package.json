@@ -10,6 +10,7 @@
     "https": "node --env-file .env.local server/https-server.mjs",
     "https:prod": "NODE_ENV=production node --env-file .env.local server/https-server.mjs",
     "gen-cert": "bash scripts/gen-cert.sh",
+    "migrate:photo": "node --env-file .env.local scripts/migrate-patient-photo.mjs",
     "seed": "node --env-file .env.local scripts/seed.mjs",
     "build": "next build",
     "start": "next start",
