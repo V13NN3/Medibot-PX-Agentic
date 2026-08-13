@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { PcmCapture, PcmPlayer } from "@/lib/pcm-audio"
+import { PcmCapture, PcmPlayer, unlockAudio } from "@/lib/pcm-audio"
 import { toolDefinitions, toolHandlers } from "@/lib/tools"
 
 export type VoiceState = "idle" | "connecting" | "listening" | "responding" | "error"
@@ -145,6 +145,8 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
     setState("connecting")
     setErrorMsg("")
     chunkCount.current = 0
+
+    await unlockAudio()
 
     const ws = new WebSocket(RELAY_URL)
     wsRef.current = ws
@@ -289,12 +291,14 @@ PERSONALITY:
                 silenceFrames.current = 0
               }
             }
-          }).catch((err) => {
-            console.error("[voice] capture.start failed:", err)
-            cleanup()
-            setState("error")
-            setErrorMsg("Microphone error: " + err.message)
-          })
+}).catch((err) => {
+              console.error("[voice] capture.start failed:", err)
+              if (wsRef.current === ws) {
+                cleanup()
+                setState("error")
+                setErrorMsg("Microphone error: " + err.message)
+              }
+            })
           return
         }
 
@@ -406,6 +410,10 @@ PERSONALITY:
     }
 
     ws.onclose = (e) => {
+      if (wsRef.current !== ws) {
+        console.log("[voice] stale onclose ignored:", e.code, e.reason)
+        return
+      }
       clearTimeout(sessionTimer)
       console.log("[voice] WebSocket closed:", e.code, e.reason)
       cleanup()
@@ -415,6 +423,9 @@ PERSONALITY:
     }
 
     ws.onerror = (e) => {
+      if (wsRef.current !== ws) {
+        return
+      }
       clearTimeout(sessionTimer)
       console.error("[voice] WebSocket error:", e)
       cleanup()

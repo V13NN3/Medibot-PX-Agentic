@@ -1,22 +1,42 @@
+let sharedContext: AudioContext | null = null
+
+export function getAudioContext(): AudioContext {
+  if (!sharedContext) {
+    try {
+      sharedContext = new AudioContext({ sampleRate: 24000 })
+    } catch {
+      sharedContext = new AudioContext()
+    }
+  }
+  return sharedContext
+}
+
+export async function unlockAudio(): Promise<void> {
+  const ctx = getAudioContext()
+  if (ctx.state === "suspended") {
+    await ctx.resume()
+  } else if (ctx.state === "closed") {
+    sharedContext = null
+    const next = getAudioContext()
+    if (next.state === "suspended") {
+      await next.resume()
+    }
+  }
+}
+
 export class PcmCapture {
-  private context: AudioContext | null = null
   private source: MediaStreamAudioSourceNode | null = null
   private processor: ScriptProcessorNode | null = null
   private stream: MediaStream | null = null
-  private _sampleRate = 24000
-
-  get sampleRate() {
-    return this._sampleRate
-  }
 
   async start(onChunk: (base64: string, float32: Float32Array) => void): Promise<void> {
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    this.context = new AudioContext({ sampleRate: this._sampleRate })
-    if (this.context.state === "suspended") {
-      await this.context.resume()
+    const ctx = getAudioContext()
+    if (ctx.state === "suspended") {
+      await ctx.resume()
     }
-    this.source = this.context.createMediaStreamSource(this.stream)
-    this.processor = this.context.createScriptProcessor(4096, 1, 1)
+    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    this.source = ctx.createMediaStreamSource(this.stream)
+    this.processor = ctx.createScriptProcessor(4096, 1, 1)
 
     this.processor.onaudioprocess = (e) => {
       const input = e.inputBuffer.getChannelData(0)
@@ -26,40 +46,33 @@ export class PcmCapture {
     }
 
     this.source.connect(this.processor)
-    this.processor.connect(this.context.destination)
+    this.processor.connect(ctx.destination)
   }
 
   stop(): void {
     this.processor?.disconnect()
     this.source?.disconnect()
     this.stream?.getTracks().forEach((t) => t.stop())
-    this.context?.close()
     this.processor = null
     this.source = null
     this.stream = null
-    this.context = null
   }
 }
 
 export class PcmPlayer {
-  private context: AudioContext | null = null
   private queue: AudioBuffer[] = []
   private playing = false
+  private currentSource: AudioBufferSourceNode | null = null
   onDrain: (() => void) | null = null
 
-  private ensureContext(): AudioContext {
-    if (!this.context) {
-      this.context = new AudioContext({ sampleRate: 24000 })
-    }
-    if (this.context.state === "suspended") {
-      this.context.resume()
-    }
-    return this.context
-  }
-
   enqueueBase64(base64: string): void {
+    if (!base64) return
     const pcm16 = base64ToPcm16(base64)
-    const ctx = this.ensureContext()
+    if (pcm16.length === 0) return
+    const ctx = getAudioContext()
+    if (ctx.state === "suspended") {
+      ctx.resume()
+    }
     const buffer = ctx.createBuffer(1, pcm16.length, 24000)
     const channel = buffer.getChannelData(0)
     for (let i = 0; i < pcm16.length; i++) {
@@ -72,29 +85,34 @@ export class PcmPlayer {
   private playNext(): void {
     if (this.queue.length === 0) {
       this.playing = false
+      this.currentSource = null
       this.onDrain?.()
       return
     }
     this.playing = true
-    const ctx = this.ensureContext()
+    const ctx = getAudioContext()
     const buffer = this.queue.shift()!
     const source = ctx.createBufferSource()
     source.buffer = buffer
     source.connect(ctx.destination)
-    source.onended = () => this.playNext()
+    this.currentSource = source
+    source.onended = () => {
+      if (this.currentSource === source) this.currentSource = null
+      this.playNext()
+    }
     source.start()
   }
 
   clear(): void {
     this.queue = []
     this.playing = false
+    this.currentSource?.stop()
+    this.currentSource = null
   }
 
   stop(): void {
     this.clear()
     this.onDrain = null
-    this.context?.close()
-    this.context = null
   }
 }
 
