@@ -54,16 +54,16 @@ function PatientInner() {
     if (facePhase !== "idle") return
     setFaceErr("")
     setFacePhase("instruct")
-    speak("Please look at the camera and smile.")
+    speak("Please look at the camera. Your photo will be taken when the countdown ends.")
     await new Promise((r) => setTimeout(r, 2500))
     setFacePhase("countdown")
-    speak("Get ready. Three, two, one.")
+    speak("Look at the camera. Get ready. Three, two, one.")
     for (let n = 3; n >= 1; n--) {
       setFaceCount(n)
       await new Promise((r) => setTimeout(r, 1000))
     }
     setFacePhase("capturing")
-    speak("Please hold still")
+    speak("Look at the camera and hold still.")
     try {
       const res = await fetch("/api/camera/face", { method: "POST" })
       const data = await res.json()
@@ -306,16 +306,19 @@ function PatientInner() {
                 className="w-28 h-28 rounded-full object-cover border-2 border-primary" />
               <button onClick={captureFace} disabled={facePhase !== "idle"}
                 className="px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 text-xs font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
-                {facePhase === "instruct" ? "Step back..." : facePhase === "countdown" ? "Get ready..." : facePhase === "capturing" ? "Capturing..." : "Re-capture Photo"}
+                {facePhase === "instruct" ? "Look at the camera..." : facePhase === "countdown" ? "Get ready..." : facePhase === "capturing" ? "Capturing..." : "Re-capture Photo"}
               </button>
+              <p className="text-[11px] text-gray-400 text-center">A face photo is required for your record.<br />It will remain private and confidential.</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
               <button onClick={captureFace} disabled={facePhase !== "idle"}
                 className="px-5 py-3 rounded-xl bg-gray-100 border border-gray-300 text-sm font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
-                {facePhase === "instruct" ? "Step back..." : facePhase === "countdown" ? "Get ready..." : facePhase === "capturing" ? "Capturing..." : "📷 Capture Photo"}
+                {facePhase === "instruct" ? "Look at the camera..." : facePhase === "countdown" ? "Get ready..." : facePhase === "capturing" ? "Capturing..." : "📷 Capture Photo"}
               </button>
-              <p className="text-[11px] text-gray-400">Look at the camera, we will take your photo</p>
+              <p className="text-[11px] text-gray-400 text-center">
+                A face photo is required for your record.<br />It will remain private and confidential.<br />Look at the camera when the 3-second countdown ends.
+              </p>
             </div>
           )}
           {faceErr && <p className="text-xs text-red-500 text-center">{faceErr}</p>}
@@ -344,7 +347,7 @@ function PatientInner() {
             {loading ? "Registering..." : "Register Patient"}
           </button>
         </Card>
-        <CountdownOverlay number={faceCount} show={facePhase === "countdown"} />
+        <CountdownOverlay number={faceCount} show={facePhase === "countdown"} caption="Look at the camera" />
       </div>
     )
   }
