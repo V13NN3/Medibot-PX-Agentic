@@ -14,17 +14,33 @@ const CERT_DIR = process.env.CERT_DIR || path.join(__dirname, "..", "certs")
 const CERT_PATH = process.env.TLS_CERT || path.join(CERT_DIR, "cert.pem")
 const KEY_PATH = process.env.TLS_KEY || path.join(CERT_DIR, "key.pem")
 const DEV = process.env.NODE_ENV !== "production"
+const CERT_CN = process.env.CERT_CN || process.env.HOSTNAME || "medibot-px"
+const PI_IP = process.env.PI_IP || ""
+
+function certMatchesConfig() {
+  if (!existsSync(CERT_PATH) || !existsSync(KEY_PATH)) return false
+  try {
+    const want = [`CN = ${CERT_CN}`, `CN=${CERT_CN}`]
+    const out = execFileSync("openssl", ["x509", "-in", CERT_PATH, "-noout", "-text"]).toString()
+    if (!want.some((w) => out.includes(w))) return false
+    if (PI_IP && !out.includes(`IP Address:${PI_IP}`)) return false
+    return true
+  } catch {
+    return false
+  }
+}
 
 function ensureCerts() {
-  if (existsSync(CERT_PATH) && existsSync(KEY_PATH)) return
-  console.log("[https] TLS cert not found — generating a self-signed cert...")
+  if (certMatchesConfig()) return
+  console.log("[https] TLS cert missing or CN/SAN out of date — regenerating...")
   mkdirSync(path.dirname(CERT_PATH), { recursive: true })
-  const cn = process.env.CERT_CN || process.env.HOSTNAME || "medibot-px"
+  const san = ["DNS:localhost", "IP:127.0.0.1", "IP:0.0.0.0"]
+  if (PI_IP) san.push(`IP:${PI_IP}`)
   execFileSync("openssl", [
     "req", "-x509", "-newkey", "rsa:2048", "-sha256", "-days", "825", "-nodes",
     "-keyout", KEY_PATH, "-out", CERT_PATH,
-    "-subj", `/CN=${cn}`,
-    "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:0.0.0.0",
+    "-subj", `/CN=${CERT_CN}`,
+    "-addext", `subjectAltName=${san.join(",")}`,
   ], { stdio: "inherit" })
   console.log(`[https] cert written to ${CERT_PATH}`)
 }

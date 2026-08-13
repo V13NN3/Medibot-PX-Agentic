@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IP="${1:-192.168.1.25}"
+IP="${PI_IP:-${1:-}}"
+if [ -z "$IP" ]; then
+  echo "Usage: PI_IP=192.168.1.25 npm run gen-cert   (or: npm run gen-cert -- 192.168.1.25)" >&2
+  exit 1
+fi
 DIR="$(cd "$(dirname "$0")/.." && pwd)/certs"
 
 mkdir -p "$DIR"
