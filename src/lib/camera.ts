@@ -46,10 +46,18 @@ async function captureStill(): Promise<{ base64: string; width: number; height: 
 
 const XAI_API_URL = "https://api.x.ai/v1/chat/completions"
 
-async function askGrokVision(imageBase64: string, width: number, height: number): Promise<{ height_cm: number; confidence: number }> {
-  const apiKey = process.env.GROK_VOICE_API_KEY || ""
+function visionModelCandidates(): string[] {
+  const configured = (process.env.GROK_VISION_MODEL || "grok-4.6").trim()
+  const defaults = ["grok-4.6", "grok-4", "grok-3"]
+  if (!configured) return defaults
+  const list = [configured, ...defaults.filter((m) => m !== configured)]
+  return [...new Set(list)]
+}
+
+async function askVision(imageBase64: string, width: number, height: number, model: string): Promise<{ height_cm: number; confidence: number }> {
+  const apiKey = process.env.GROK_VISION_API_KEY || process.env.GROK_VOICE_API_KEY || ""
   if (!apiKey) {
-    throw new Error("GROK_VOICE_API_KEY not set")
+    throw new Error("GROK_VISION_API_KEY not set")
   }
 
   const elevation = process.env.CAMERA_ELEVATION_CM || "133"
@@ -62,7 +70,7 @@ async function askGrokVision(imageBase64: string, width: number, height: number)
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "grok-2-vision",
+      model,
       messages: [
         {
           role: "user",
@@ -117,8 +125,20 @@ export async function estimateHeight(): Promise<HeightEstimate> {
       console.warn("[camera] no capture, returning mock height")
       return { height_cm: 172, confidence: 0, _source: "mock" }
     }
-    const { height_cm, confidence } = await askGrokVision(shot.base64, shot.width, shot.height)
-    return { height_cm, confidence, _source: "vision-ai", image_base64: shot.base64 }
+    let result: { height_cm: number; confidence: number } | null = null
+    let lastErr: unknown = null
+    for (const model of visionModelCandidates()) {
+      try {
+        result = await askVision(shot.base64, shot.width, shot.height, model)
+        break
+      } catch (err) {
+        lastErr = err
+        const msg = err instanceof Error ? err.message : String(err)
+        if (!msg.includes("400") && !msg.includes("Model not found")) break
+      }
+    }
+    if (!result) throw lastErr || new Error("all vision models failed")
+    return { height_cm: result.height_cm, confidence: result.confidence, _source: "vision-ai", image_base64: shot.base64 }
   } catch (err) {
     console.error("[camera] height estimation failed:", err)
     return { height_cm: 172, confidence: 0, _source: "mock" }

@@ -30,7 +30,7 @@ function VitalsInner() {
   const [reading, setReading] = useState<Reading | null>(null)
   const [measuring, setMeasuring] = useState<string[]>([])
   const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "measuring">("idle")
-  const [heightImg, setHeightImg] = useState("")
+  const [heightEst, setHeightEst] = useState<{ cm: number; img: string } | null>(null)
   const [heightErr, setHeightErr] = useState("")
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
@@ -50,6 +50,9 @@ function VitalsInner() {
       const res = await fetch("/api/vitals/read")
       const data = await res.json()
       await new Promise((r) => setTimeout(r, 1200))
+      if (heightEst) {
+        data.height_cm = heightEst.cm
+      }
       reveal(data)
     } catch {
       setMeasuring([])
@@ -59,7 +62,6 @@ function VitalsInner() {
 
   const measureHeight = async () => {
     setHeightErr("")
-    setHeightImg("")
     setHeightPhase("instruct")
     await new Promise((r) => setTimeout(r, 2500))
     setHeightPhase("measuring")
@@ -67,8 +69,9 @@ function VitalsInner() {
       const res = await fetch("/api/vitals/height", { method: "POST" })
       const data = await res.json()
       if (data.height_cm) {
-        setReading((prev) => ({ ...(prev as Reading), height_cm: data.height_cm, image_base64: data.image_base64 }))
-        setHeightImg(data.image_base64 || "")
+        const est = { cm: data.height_cm, img: data.image_base64 || "" }
+        setHeightEst(est)
+        setReading((prev) => (prev ? { ...prev, height_cm: est.cm } : prev))
       } else {
         setHeightErr(data.error || "Height measurement failed")
       }
@@ -89,7 +92,7 @@ function VitalsInner() {
         body: JSON.stringify({
           patient_id: patientId,
           weight_kg: reading.weight_kg,
-          height_cm: reading.height_cm,
+          height_cm: reading.height_cm ?? heightEst?.cm ?? null,
           temperature_c: reading.temperature_c,
           oxygen_saturation: reading.oxygen_saturation,
           heart_rate: reading.heart_rate,
@@ -117,7 +120,7 @@ function VitalsInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           weight_kg: reading.weight_kg,
-          height_cm: reading.height_cm,
+          height_cm: reading.height_cm ?? heightEst?.cm ?? null,
           temperature_c: reading.temperature_c,
           oxygen_saturation: reading.oxygen_saturation,
           heart_rate: reading.heart_rate,
@@ -147,7 +150,9 @@ function VitalsInner() {
     const onReading = (e: Event) => {
       const detail = (e as CustomEvent).detail as { reading: Reading }
       if (detail?.reading) {
-        setHeightImg(detail.reading.image_base64 || "")
+        if (detail.reading.image_base64) {
+          setHeightEst({ cm: detail.reading.height_cm, img: detail.reading.image_base64 })
+        }
         reveal(detail.reading)
       }
     }
@@ -204,13 +209,13 @@ function VitalsInner() {
         </div>
       )}
 
-      {heightImg && (
+      {heightEst?.img && (
         <div className="flex items-center gap-3 rounded-2xl bg-gray-50 border border-gray-200 p-3">
-          <img src={`data:image/jpeg;base64,${heightImg}`} alt="Height capture"
+          <img src={`data:image/jpeg;base64,${heightEst.img}`} alt="Height capture"
             className="w-24 h-24 object-cover rounded-lg border border-gray-300" />
           <div>
             <p className="text-lg font-bold text-foreground">
-              Estimated height: {reading?.height_cm.toFixed(0)} cm
+              Estimated height: {heightEst.cm.toFixed(0)} cm
             </p>
             <span className="inline-block text-xs font-medium text-white bg-primary rounded-full px-2 py-0.5">AI estimate</span>
           </div>
