@@ -33,8 +33,48 @@ function escpos(data: number[]): Buffer {
   return Buffer.from(data)
 }
 
-function getPrinterDevice(): string {
-  return process.env.PRINTER_DEVICE || "/dev/usb/lp0"
+interface PrinterTarget {
+  device: string
+  kind: "usb" | "serial"
+}
+
+function resolvePrinterTarget(): PrinterTarget | null {
+  const fs = require("fs") as typeof import("fs")
+  const candidates = process.env.PRINTER_DEVICE
+    ? [process.env.PRINTER_DEVICE]
+    : ["/dev/usb/lp0", "/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyACM0"]
+  for (const device of candidates) {
+    if (fs.existsSync(device)) {
+      return { device, kind: device.startsWith("/dev/tty") ? "serial" : "usb" }
+    }
+  }
+  return null
+}
+
+function configureSerial(device: string): void {
+  const { execSync } = require("child_process") as typeof import("child_process")
+  const baud = process.env.PRINTER_BAUD || "9600"
+  execSync(`stty -F ${device} ${baud} raw -echo -onlcr -opost -crtscts`, { stdio: "ignore" })
+}
+
+async function writePrintBytes(buf: Buffer): Promise<void> {
+  const target = resolvePrinterTarget()
+  if (!target) {
+    throw new Error("No printer device found. Check /dev/usb/lp0, /dev/ttyUSB0, or set PRINTER_DEVICE.")
+  }
+  const fs = await import("fs")
+  if (target.kind === "serial") {
+    configureSerial(target.device)
+    const fd = fs.openSync(target.device, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK)
+    try {
+      fs.writeSync(fd, buf)
+    } finally {
+      fs.closeSync(fd)
+    }
+  } else {
+    fs.writeFileSync(target.device, buf)
+  }
+  console.log(`[printer] wrote ${buf.length} bytes to ${target.device}`)
 }
 
 export async function printTicket(ticket: TicketData): Promise<void> {
@@ -58,9 +98,6 @@ export async function printTicket(ticket: TicketData): Promise<void> {
   const text = lines.join("\n")
 
   if (isRpi) {
-    const fs = await import("fs")
-    const device = getPrinterDevice()
-
     const bold = escpos([0x1b, 0x45, 0x01])
     const normal = escpos([0x1b, 0x45, 0x00])
     const center = escpos([0x1b, 0x61, 0x01])
@@ -87,7 +124,7 @@ export async function printTicket(ticket: TicketData): Promise<void> {
       cut,
     ])
 
-    fs.writeFileSync(device, buf)
+    await writePrintBytes(buf)
   } else {
     console.log("[printer] ──────────────────────────────")
     console.log("[printer]  MEDIBOT PX")
@@ -136,9 +173,6 @@ export async function printPrescription(rx: PrescriptionData): Promise<void> {
   const text = lines.join("\n")
 
   if (isRpi) {
-    const fs = await import("fs")
-    const device = getPrinterDevice()
-
     const bold = escpos([0x1b, 0x45, 0x01])
     const normal = escpos([0x1b, 0x45, 0x00])
     const center = escpos([0x1b, 0x61, 0x01])
@@ -161,7 +195,7 @@ export async function printPrescription(rx: PrescriptionData): Promise<void> {
     }
     parts.push(center, Buffer.from("════════════════════════════════\n"), feed, cut)
 
-    fs.writeFileSync(device, Buffer.concat(parts))
+    await writePrintBytes(Buffer.concat(parts))
   } else {
     console.log("[printer] " + text.split("\n").join("\n[printer] "))
   }
@@ -203,9 +237,6 @@ export async function printVitals(v: VitalsData): Promise<void> {
   const text = lines.join("\n")
 
   if (isRpi) {
-    const fs = await import("fs")
-    const device = getPrinterDevice()
-
     const bold = escpos([0x1b, 0x45, 0x01])
     const normal = escpos([0x1b, 0x45, 0x00])
     const center = escpos([0x1b, 0x61, 0x01])
@@ -228,7 +259,7 @@ export async function printVitals(v: VitalsData): Promise<void> {
     }
     parts.push(center, Buffer.from("════════════════════════════════\n"), feed, cut)
 
-    fs.writeFileSync(device, Buffer.concat(parts))
+    await writePrintBytes(Buffer.concat(parts))
   } else {
     console.log("[printer] " + text.split("\n").join("\n[printer] "))
   }
