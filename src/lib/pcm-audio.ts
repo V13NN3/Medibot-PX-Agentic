@@ -12,16 +12,38 @@ export function getAudioContext(): AudioContext {
 }
 
 export async function unlockAudio(): Promise<void> {
-  const ctx = getAudioContext()
-  if (ctx.state === "suspended") {
-    await ctx.resume()
-  } else if (ctx.state === "closed") {
+  let ctx = getAudioContext()
+  if (ctx.state === "closed") {
+    console.log("[audio] context was closed, recreating")
     sharedContext = null
-    const next = getAudioContext()
-    if (next.state === "suspended") {
-      await next.resume()
+    ctx = getAudioContext()
+  }
+  if (ctx.state === "suspended") {
+    console.log("[audio] ctx.state=suspended, resuming")
+    try {
+      await ctx.resume()
+    } catch (err) {
+      console.warn("[audio] resume failed:", err)
     }
   }
+  if (ctx.state !== "running") {
+    console.log("[audio] ctx.state=" + ctx.state + ", recreating fresh context")
+    try {
+      await ctx.close()
+    } catch {
+      /* ignore */
+    }
+    sharedContext = null
+    ctx = getAudioContext()
+    if (ctx.state === "suspended") {
+      try {
+        await ctx.resume()
+      } catch (err) {
+        console.warn("[audio] resume on fresh context failed:", err)
+      }
+    }
+  }
+  console.log("[audio] unlockAudio done, ctx.state=" + ctx.state)
 }
 
 export class PcmCapture {
@@ -31,6 +53,7 @@ export class PcmCapture {
 
   async start(onChunk: (base64: string, float32: Float32Array) => void): Promise<void> {
     const ctx = getAudioContext()
+    console.log("[audio] PcmCapture.start, ctx.state=" + ctx.state)
     if (ctx.state === "suspended") {
       await ctx.resume()
     }
@@ -65,13 +88,21 @@ export class PcmPlayer {
   private currentSource: AudioBufferSourceNode | null = null
   onDrain: (() => void) | null = null
 
-  enqueueBase64(base64: string): void {
+  async enqueueBase64(base64: string): Promise<void> {
     if (!base64) return
     const pcm16 = base64ToPcm16(base64)
     if (pcm16.length === 0) return
-    const ctx = getAudioContext()
+    let ctx = getAudioContext()
     if (ctx.state === "suspended") {
-      ctx.resume()
+      console.log("[audio] enqueue: ctx suspended, resuming")
+      await ctx.resume().catch(() => {})
+    }
+    if (ctx.state !== "running") {
+      console.log("[audio] enqueue: ctx.state=" + ctx.state + ", recreating")
+      await ctx.close().catch(() => {})
+      sharedContext = null
+      ctx = getAudioContext()
+      await ctx.resume().catch(() => {})
     }
     const buffer = ctx.createBuffer(1, pcm16.length, 24000)
     const channel = buffer.getChannelData(0)
