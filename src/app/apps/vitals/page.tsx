@@ -235,6 +235,12 @@ function VitalsInner() {
               ) : (
                 <p className="text-sm text-gray-400">--</p>
               )}
+              {m.key === "height" && (
+                <button onClick={measureHeight} disabled={busy}
+                  className="mt-1 px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                  {heightPhase === "instruct" ? "Step back..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : value ? "Re-measure" : "Measure"}
+                </button>
+              )}
             </Card>
           )
         })}
@@ -265,22 +271,9 @@ function VitalsInner() {
       {heightErr && <p className="text-xs text-red-500 text-center">{heightErr}</p>}
 
       {!reading && !saved && (
-        <div className="flex flex-col gap-3">
-          <button onClick={startMeasurement} disabled={measuring.length > 0 || busy}
-            className="w-full py-6 rounded-2xl bg-primary text-white text-xl font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
-            {measuring.length > 0 ? "Measuring..." : "START MEASUREMENT"}
-          </button>
-          <button onClick={measureHeight} disabled={busy}
-            className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-300 text-foreground text-lg font-bold hover:bg-gray-200 transition-colors disabled:bg-gray-100">
-            {heightPhase === "instruct" ? "Step back 3 steps..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : "Measure Height (Camera)"}
-          </button>
-        </div>
-      )}
-
-      {reading && !saved && (
-        <button onClick={measureHeight} disabled={busy}
-          className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-300 text-foreground text-lg font-bold hover:bg-gray-200 transition-colors disabled:bg-gray-100">
-          {heightPhase === "instruct" ? "Step back 3 steps..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : "Re-measure Height"}
+        <button onClick={startMeasurement} disabled={measuring.length > 0 || busy}
+          className="w-full py-6 rounded-2xl bg-primary text-white text-xl font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+          {measuring.length > 0 ? "Measuring..." : "START MEASUREMENT"}
         </button>
       )}
 
