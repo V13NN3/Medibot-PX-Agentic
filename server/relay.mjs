@@ -1,15 +1,15 @@
 import { WebSocketServer } from "ws"
 import WebSocket from "ws"
+import { pathToFileURL } from "url"
 
 const RELAY_PORT = parseInt(process.env.RELAY_PORT || "3002", 10)
 const GROK_URL = process.env.GROK_VOICE_API_URL || "wss://api.x.ai/v1/realtime"
 const GROK_KEY = process.env.GROK_VOICE_API_KEY || ""
 
-const wss = new WebSocketServer({ host: "0.0.0.0", port: RELAY_PORT })
+export const relayIsMain =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
-console.log(`[relay] WebSocket relay listening on ws://0.0.0.0:${RELAY_PORT}`)
-
-wss.on("connection", (clientWs) => {
+export function handleRelayConnection(clientWs) {
   console.log("[relay] browser connected")
 
   if (!GROK_KEY) {
@@ -89,8 +89,21 @@ wss.on("connection", (clientWs) => {
   clientWs.on("error", (err) => {
     console.error("[relay] client WS error:", err.message)
   })
-})
+}
 
-wss.on("error", (err) => {
-  console.error("[relay] server error:", err.message)
-})
+export function startRelayServer() {
+  const wss = new WebSocketServer({ host: "0.0.0.0", port: RELAY_PORT })
+
+  console.log(`[relay] WebSocket relay listening on ws://0.0.0.0:${RELAY_PORT}`)
+
+  wss.on("connection", handleRelayConnection)
+
+  wss.on("error", (err) => {
+    console.error("[relay] server error:", err.message)
+  })
+}
+
+const isMain = relayIsMain
+if (isMain) {
+  startRelayServer()
+}

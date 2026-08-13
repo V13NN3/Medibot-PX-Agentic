@@ -7,11 +7,17 @@ import { toolDefinitions, toolHandlers } from "@/lib/tools"
 
 export type VoiceState = "idle" | "connecting" | "listening" | "responding" | "error"
 
-const RELAY_URL =
-  process.env.NEXT_PUBLIC_RELAY_URL ||
-  (typeof window !== "undefined"
-    ? `ws://${window.location.hostname}:3002`
-    : "ws://localhost:3002")
+function resolveRelayUrl() {
+  if (process.env.NEXT_PUBLIC_RELAY_URL) return process.env.NEXT_PUBLIC_RELAY_URL
+  if (typeof window === "undefined") return "ws://localhost:3002"
+  if (window.location.protocol === "https:") {
+    const port = window.location.port || "443"
+    return `wss://${window.location.hostname}:${port}/relay`
+  }
+  return `ws://${window.location.hostname}:3002`
+}
+
+const RELAY_URL = resolveRelayUrl()
 const SESSION_TIMEOUT = 8000
 const SILENCE_THRESHOLD = 0.025
 const SILENCE_FRAMES_MAX = 10

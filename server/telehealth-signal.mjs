@@ -1,12 +1,12 @@
 import { WebSocketServer } from "ws"
 import WebSocket from "ws"
 import { randomUUID } from "crypto"
+import { pathToFileURL } from "url"
 
 const PORT = parseInt(process.env.TELEHEALTH_PORT || "3004", 10)
 
-const wss = new WebSocketServer({ host: "0.0.0.0", port: PORT })
-
-console.log(`[telehealth-signal] WebSocket signaling listening on ws://0.0.0.0:${PORT}`)
+export const signalIsMain =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 const doctors = new Map() // doctorId -> ws
 const doctorNames = new Map() // doctorId -> name
@@ -18,7 +18,7 @@ function send(ws, msg) {
   }
 }
 
-wss.on("connection", (ws) => {
+export function handleSignalConnection(ws) {
   console.log("[telehealth-signal] client connected")
 
   ws.on("message", (raw) => {
@@ -150,8 +150,21 @@ wss.on("connection", (ws) => {
   ws.on("error", (err) => {
     console.error("[telehealth-signal] client error:", err.message)
   })
-})
+}
 
-wss.on("error", (err) => {
-  console.error("[telehealth-signal] server error:", err.message)
-})
+export function startSignalServer() {
+  const wss = new WebSocketServer({ host: "0.0.0.0", port: PORT })
+
+  console.log(`[telehealth-signal] WebSocket signaling listening on ws://0.0.0.0:${PORT}`)
+
+  wss.on("connection", handleSignalConnection)
+
+  wss.on("error", (err) => {
+    console.error("[telehealth-signal] server error:", err.message)
+  })
+}
+
+const isMain = signalIsMain
+if (isMain) {
+  startSignalServer()
+}

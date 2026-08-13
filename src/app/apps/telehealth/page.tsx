@@ -13,11 +13,17 @@ interface Doctor {
 
 type CallState = "idle" | "initiating" | "ringing" | "declined" | "connected" | "offline" | "ended"
 
-const SIGNAL_URL =
-  process.env.NEXT_PUBLIC_TELEHEALTH_URL ||
-  (typeof window !== "undefined"
-    ? `ws://${window.location.hostname}:3004`
-    : "ws://localhost:3004")
+function resolveSignalUrl() {
+  if (process.env.NEXT_PUBLIC_TELEHEALTH_URL) return process.env.NEXT_PUBLIC_TELEHEALTH_URL
+  if (typeof window === "undefined") return "ws://localhost:3004"
+  if (window.location.protocol === "https:") {
+    const port = window.location.port || "443"
+    return `wss://${window.location.hostname}:${port}/signal`
+  }
+  return `ws://${window.location.hostname}:3004`
+}
+
+const SIGNAL_URL = resolveSignalUrl()
 
 function TelehealthInner() {
   const searchParams = useSearchParams()
