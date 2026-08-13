@@ -1,5 +1,6 @@
 import { createServer } from "https"
-import { readFileSync } from "fs"
+import { readFileSync, existsSync, mkdirSync } from "fs"
+import { execFileSync } from "child_process"
 import path from "path"
 import { fileURLToPath } from "url"
 import { WebSocketServer } from "ws"
@@ -14,6 +15,20 @@ const CERT_PATH = process.env.TLS_CERT || path.join(CERT_DIR, "cert.pem")
 const KEY_PATH = process.env.TLS_KEY || path.join(CERT_DIR, "key.pem")
 const DEV = process.env.NODE_ENV !== "production"
 
+function ensureCerts() {
+  if (existsSync(CERT_PATH) && existsSync(KEY_PATH)) return
+  console.log("[https] TLS cert not found — generating a self-signed cert...")
+  mkdirSync(path.dirname(CERT_PATH), { recursive: true })
+  const cn = process.env.CERT_CN || process.env.HOSTNAME || "medibot-px"
+  execFileSync("openssl", [
+    "req", "-x509", "-newkey", "rsa:2048", "-sha256", "-days", "825", "-nodes",
+    "-keyout", KEY_PATH, "-out", CERT_PATH,
+    "-subj", `/CN=${cn}`,
+    "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:0.0.0.0",
+  ], { stdio: "inherit" })
+  console.log(`[https] cert written to ${CERT_PATH}`)
+}
+
 const app = next({ dev: DEV, hostname: "0.0.0.0", port: HTTPS_PORT })
 const handle = app.getRequestHandler()
 
@@ -24,6 +39,8 @@ relayWss.on("connection", handleRelayConnection)
 signalWss.on("connection", handleSignalConnection)
 
 app.prepare().then(() => {
+  ensureCerts()
+
   const server = createServer(
     {
       cert: readFileSync(CERT_PATH),
