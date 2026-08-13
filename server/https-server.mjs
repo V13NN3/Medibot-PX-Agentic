@@ -51,7 +51,12 @@ app.prepare().then(() => {
       return
     }
 
-    socket.destroy()
+    const nextUpgrade = app.getUpgradeHandler?.()
+    if (nextUpgrade) {
+      nextUpgrade(req, socket, head)
+    } else {
+      socket.destroy()
+    }
   })
 
   server.listen(HTTPS_PORT, "0.0.0.0", () => {
