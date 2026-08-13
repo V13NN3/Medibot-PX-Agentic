@@ -10,10 +10,10 @@ export async function GET(req: NextRequest) {
     }
 
     const result = await query(
-      `SELECT id, name, dob, sex FROM patients
+      `SELECT id, name, dob, sex, photo FROM patients
        WHERE LOWER(name) LIKE LOWER($1)
        ORDER BY name
-       LIMIT 20`,
+       LIMIT 8`,
       [`%${q}%`],
     )
 

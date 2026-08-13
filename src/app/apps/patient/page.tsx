@@ -13,6 +13,7 @@ interface PatientSummary {
   name: string
   dob: string
   sex: string
+  photo?: string
 }
 
 interface PatientDetail extends PatientSummary {
@@ -36,6 +37,7 @@ function PatientInner() {
   const [pageState, setPageState] = useState<PageState>("search")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<PatientSummary[]>([])
+  const [records, setRecords] = useState<PatientSummary[]>([])
   const [selectedId, setSelectedId] = useState("")
   const [verifyDob, setVerifyDob] = useState("")
   const [verifyError, setVerifyError] = useState("")
@@ -77,11 +79,22 @@ function PatientInner() {
     }
   }
 
+  const loadRecords = useCallback(async () => {
+    try {
+      const res = await fetch("/api/patient/list")
+      const data = await res.json()
+      setRecords(data.patients || [])
+    } catch {
+      setRecords([])
+    }
+  }, [])
+
   const doSearch = useCallback(async (q: string) => {
     setQuery(q)
     if (q.length < 2) {
       setResults([])
       setPageState("search")
+      loadRecords()
       return
     }
     setLoading(true)
@@ -95,7 +108,7 @@ function PatientInner() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [loadRecords])
 
   useEffect(() => {
     if (initialized) return
@@ -106,8 +119,9 @@ function PatientInner() {
       doSearch(searchQ)
     } else {
       setInitialized(true)
+      loadRecords()
     }
-  }, [searchParams, doSearch, initialized])
+  }, [searchParams, doSearch, initialized, loadRecords])
 
   const selectPatient = (id: string) => {
     setSelectedId(id)
@@ -168,6 +182,7 @@ function PatientInner() {
         setVitalsHistory([])
         setPageState("detail")
         setNewForm({ name: "", dob: "", sex: "Male", address: "", contact_number: "", photo: "" })
+        loadRecords()
       }
     } catch {
       /* ignore */
@@ -337,14 +352,14 @@ function PatientInner() {
   if (pageState === "verify") {
     return (
       <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
-        <button onClick={() => setPageState("results")}
+        <button onClick={() => setPageState(query.length >= 2 ? "results" : "search")}
           className="text-xs text-gray-500 hover:text-foreground transition-colors self-start">
-          &larr; Back to results
+          &larr; Back
         </button>
         <Card padding="md" className="flex flex-col items-center gap-4 text-center">
           <p className="text-sm text-gray-500">Verify identity</p>
           <p className="text-lg font-semibold text-foreground">
-            {results.find((r) => r.id === selectedId)?.name}
+            {[...results, ...records].find((r) => r.id === selectedId)?.name}
           </p>
           <div className="w-full">
             <input type="date" value={verifyDob}
@@ -361,17 +376,41 @@ function PatientInner() {
     )
   }
 
+  const patientRow = (r: PatientSummary) => (
+    <button key={r.id} onClick={() => selectPatient(r.id)}
+      className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+      {r.photo ? (
+        <img src={`data:image/jpeg;base64,${r.photo}`} alt={r.name}
+          className="w-10 h-10 shrink-0 rounded-full object-cover border border-gray-200" />
+      ) : (
+        <span className="w-10 h-10 rounded-full bg-primary/10 text-primary text-sm font-semibold flex items-center justify-center shrink-0">
+          {r.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+        </span>
+      )}
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground truncate">{r.name}</p>
+        <p className="text-xs text-gray-500">{r.sex} &middot; Age {calcAge(r.dob)} &middot; DOB: {formatDate(r.dob)}</p>
+      </div>
+    </button>
+  )
+
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
+    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-hidden">
       <div>
         <h2 className="text-2xl font-semibold text-foreground">Patient Records</h2>
         <p className="text-sm text-gray-500">Search for a patient or register a new one</p>
       </div>
 
-      <div className="relative">
-        <input type="search" value={query} placeholder="Search by name..."
-          onChange={(e) => doSearch(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm shadow-sm" />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <input type="search" value={query} placeholder="Search by name..."
+            onChange={(e) => doSearch(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm shadow-sm" />
+        </div>
+        <button onClick={() => setPageState("new-patient")}
+          className="shrink-0 px-4 py-3 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-colors">
+          + New Patient
+        </button>
       </div>
 
       {loading && query.length >= 2 && (
@@ -380,28 +419,20 @@ function PatientInner() {
 
       {pageState === "results" && results.length > 0 && (
         <div className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden bg-card dark:bg-card-dark">
-          {results.map((r) => (
-            <button key={r.id} onClick={() => selectPatient(r.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-              <span className="w-10 h-10 rounded-full bg-primary/10 text-primary text-sm font-semibold flex items-center justify-center shrink-0">
-                {r.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{r.name}</p>
-                <p className="text-xs text-gray-500">{r.sex} &middot; DOB: {formatDate(r.dob)}</p>
-              </div>
-            </button>
-          ))}
+          {results.map(patientRow)}
         </div>
       )}
 
       {pageState === "search" && !query && (
-        <div className="flex flex-col items-center gap-4 pt-8">
-          <button onClick={() => setPageState("new-patient")}
-            className="px-6 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors">
-            + New Patient
-          </button>
-          <p className="text-xs text-gray-400">or type a name above to search</p>
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Recent Patients</p>
+          {records.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">No patients yet.</p>
+          ) : (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden bg-card dark:bg-card-dark">
+              {records.map(patientRow)}
+            </div>
+          )}
         </div>
       )}
     </div>
