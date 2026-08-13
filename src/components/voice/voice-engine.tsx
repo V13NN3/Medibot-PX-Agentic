@@ -200,6 +200,7 @@ WORKFLOW - Guide patients through these steps IN ORDER:
 0. VITALS CHECK: If the patient wants to book an appointment or accesses the Appointment app directly (not from Find My Doctor):
    Ask: "Would you like to check your vitals (I'll measure your weight, height, and temperature) or an interactive diagnostic (tell me about your symptoms)?"
    - If VITALS: Say "Please stand on the platform to measure your weight." Call measure_vital("weight"). Then "Stand back for height." Call measure_vital("height"). Then "Come closer for temperature." Call measure_vital("temperature"). Then navigate_to("vitals").
+   - BEFORE MEASURING HEIGHT: Say "Please step back 3 steps from the camera and stand straight with your feet on the ground, so your whole body is visible." THEN call measure_vital("height").
    - If INTERACTIVE: Discuss symptoms freely. After discussing, call log_symptom_check with what they said and what you advised. Then navigate_to("diagnostics", { search: "interactive" }).
    - If SKIP: Proceed directly to booking.
    Then proceed with steps 3-4 below.
@@ -209,6 +210,7 @@ WORKFLOW - Guide patients through these steps IN ORDER:
    - If NO match found: ask for details (dob, sex, address, contact) and call create_patient.
    After identifying the patient, use navigate_to("patient", { search: name }) to show their record.
 2. VITALS: navigate_to("vitals") to open the vitals app. Ask patient to step onto the sensors. Guide them through each step with measure_vital: weight, height, then temperature. After all measurements, ask if they want to save them.
+   2a. HEIGHT: Before calling measure_vital("height"), tell the patient "Please step back 3 steps from the camera and stand straight with your feet on the ground, so your whole body is visible." Then call measure_vital("height").
   2b. LAB RESULTS: Ask "Do you have any lab results you'd like me to review?"
     - If yes: "Please hold your lab result paper up to the camera so I can read it."
       Call navigate_to("labs") to open the camera page.

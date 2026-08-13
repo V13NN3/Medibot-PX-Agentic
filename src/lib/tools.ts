@@ -188,6 +188,22 @@ export const toolHandlers: Record<string, ToolHandler> = {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("measure-vital", { detail: { measurement } }))
     }
+
+    if (measurement === "height") {
+      const heightRes = (await apiPost("/api/vitals/height", {})) as {
+        height_cm?: number
+        confidence?: number
+        _source?: string
+        image_base64?: string
+      }
+      const readRes = (await apiGet("/api/vitals/read")) as Record<string, unknown>
+      const reading = { ...readRes, height_cm: heightRes.height_cm, image_base64: heightRes.image_base64 }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("vitals-reading", { detail: { reading } }))
+      }
+      return JSON.stringify({ ...reading, _source: heightRes._source || "vision-ai" })
+    }
+
     const data = await apiGet("/api/vitals/read")
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("vitals-reading", { detail: { reading: data } }))

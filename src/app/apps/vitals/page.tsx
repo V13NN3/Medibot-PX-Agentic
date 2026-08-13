@@ -11,6 +11,7 @@ interface Reading {
   oxygen_saturation: number
   heart_rate: number
   _source?: string
+  image_base64?: string
 }
 
 const MEASUREMENTS = [
@@ -28,6 +29,9 @@ function VitalsInner() {
 
   const [reading, setReading] = useState<Reading | null>(null)
   const [measuring, setMeasuring] = useState<string[]>([])
+  const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "measuring">("idle")
+  const [heightImg, setHeightImg] = useState("")
+  const [heightErr, setHeightErr] = useState("")
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [printMsg, setPrintMsg] = useState("")
@@ -50,6 +54,28 @@ function VitalsInner() {
     } catch {
       setMeasuring([])
       setError("Failed to read sensors")
+    }
+  }
+
+  const measureHeight = async () => {
+    setHeightErr("")
+    setHeightImg("")
+    setHeightPhase("instruct")
+    await new Promise((r) => setTimeout(r, 2500))
+    setHeightPhase("measuring")
+    try {
+      const res = await fetch("/api/vitals/height", { method: "POST" })
+      const data = await res.json()
+      if (data.height_cm) {
+        setReading((prev) => ({ ...(prev as Reading), height_cm: data.height_cm, image_base64: data.image_base64 }))
+        setHeightImg(data.image_base64 || "")
+      } else {
+        setHeightErr(data.error || "Height measurement failed")
+      }
+    } catch {
+      setHeightErr("Failed to measure height")
+    } finally {
+      setHeightPhase("idle")
     }
   }
 
@@ -120,7 +146,10 @@ function VitalsInner() {
     }
     const onReading = (e: Event) => {
       const detail = (e as CustomEvent).detail as { reading: Reading }
-      if (detail?.reading) reveal(detail.reading)
+      if (detail?.reading) {
+        setHeightImg(detail.reading.image_base64 || "")
+        reveal(detail.reading)
+      }
     }
     window.addEventListener("measure-vital", onMeasure)
     window.addEventListener("vitals-reading", onReading)
@@ -168,12 +197,47 @@ function VitalsInner() {
         })}
       </div>
 
+      {heightPhase === "instruct" && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-300 p-5 text-center">
+          <p className="text-xl font-bold text-amber-900">Please step back 3 steps from the camera</p>
+          <p className="text-sm text-amber-700 mt-1">Stand straight, full body visible, feet on the ground...</p>
+        </div>
+      )}
+
+      {heightImg && (
+        <div className="flex items-center gap-3 rounded-2xl bg-gray-50 border border-gray-200 p-3">
+          <img src={`data:image/jpeg;base64,${heightImg}`} alt="Height capture"
+            className="w-24 h-24 object-cover rounded-lg border border-gray-300" />
+          <div>
+            <p className="text-lg font-bold text-foreground">
+              Estimated height: {reading?.height_cm.toFixed(0)} cm
+            </p>
+            <span className="inline-block text-xs font-medium text-white bg-primary rounded-full px-2 py-0.5">AI estimate</span>
+          </div>
+        </div>
+      )}
+
       {error && <p className="text-xs text-red-500 text-center">{error}</p>}
 
+      {heightErr && <p className="text-xs text-red-500 text-center">{heightErr}</p>}
+
       {!reading && !saved && (
-        <button onClick={startMeasurement} disabled={measuring.length > 0}
-          className="w-full py-6 rounded-2xl bg-primary text-white text-xl font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
-          {measuring.length > 0 ? "Measuring..." : "START MEASUREMENT"}
+        <div className="flex flex-col gap-3">
+          <button onClick={startMeasurement} disabled={measuring.length > 0 || heightPhase === "measuring"}
+            className="w-full py-6 rounded-2xl bg-primary text-white text-xl font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+            {measuring.length > 0 ? "Measuring..." : "START MEASUREMENT"}
+          </button>
+          <button onClick={measureHeight} disabled={heightPhase === "instruct" || heightPhase === "measuring"}
+            className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-300 text-foreground text-lg font-bold hover:bg-gray-200 transition-colors disabled:bg-gray-100">
+            {heightPhase === "instruct" ? "Step back 3 steps..." : heightPhase === "measuring" ? "Analyzing..." : "Measure Height (Camera)"}
+          </button>
+        </div>
+      )}
+
+      {reading && !saved && (
+        <button onClick={measureHeight} disabled={heightPhase === "instruct" || heightPhase === "measuring"}
+          className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-300 text-foreground text-lg font-bold hover:bg-gray-200 transition-colors disabled:bg-gray-100">
+          {heightPhase === "instruct" ? "Step back 3 steps..." : heightPhase === "measuring" ? "Analyzing..." : "Re-measure Height"}
         </button>
       )}
 
