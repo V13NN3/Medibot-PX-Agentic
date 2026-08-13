@@ -33,6 +33,10 @@ const QueueMonitor = dynamic(
   () => import("@/components/queue-monitor").then((m) => ({ default: m.QueueMonitor })),
 )
 
+const NewPatientFill = dynamic(
+  () => import("@/components/new-patient-fill").then((m) => ({ default: m.NewPatientFill })),
+)
+
 export const metadata: Metadata = {
   title: "Medibot PX",
   description: "Healthcare Assistant Robot OS",
@@ -73,6 +77,7 @@ export default function RootLayout({
 
               <VoiceButton compact />
               <QueueMonitor />
+              <NewPatientFill />
             </VoiceEngineProvider>
           </MenuProvider>
         </KioskFit>

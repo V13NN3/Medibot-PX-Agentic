@@ -175,6 +175,13 @@ export const toolHandlers: Record<string, ToolHandler> = {
 
   create_patient: async (args) => {
     const data = await apiPost("/api/patient/create", args)
+    if (typeof window !== "undefined" && data.patient) {
+      window.dispatchEvent(
+        new CustomEvent("voice-create-patient", {
+          detail: { patient: data.patient, form: args },
+        }),
+      )
+    }
     return JSON.stringify(data)
   },
 
