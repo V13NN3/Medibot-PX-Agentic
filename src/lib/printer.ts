@@ -20,8 +20,21 @@ export interface PrescriptionData {
   note?: string
 }
 
+export interface VitalsData {
+  weight_kg: number
+  height_cm: number
+  temperature_c: number
+  oxygen_saturation: number
+  heart_rate: number
+  recorded_at?: string
+}
+
 function escpos(data: number[]): Buffer {
   return Buffer.from(data)
+}
+
+function getPrinterDevice(): string {
+  return process.env.PRINTER_DEVICE || "/dev/usb/lp0"
 }
 
 export async function printTicket(ticket: TicketData): Promise<void> {
@@ -46,7 +59,7 @@ export async function printTicket(ticket: TicketData): Promise<void> {
 
   if (isRpi) {
     const fs = await import("fs")
-    const device = "/dev/usb/lp0"
+    const device = getPrinterDevice()
 
     const bold = escpos([0x1b, 0x45, 0x01])
     const normal = escpos([0x1b, 0x45, 0x00])
@@ -124,7 +137,74 @@ export async function printPrescription(rx: PrescriptionData): Promise<void> {
 
   if (isRpi) {
     const fs = await import("fs")
-    const device = "/dev/usb/lp0"
+    const device = getPrinterDevice()
+
+    const bold = escpos([0x1b, 0x45, 0x01])
+    const normal = escpos([0x1b, 0x45, 0x00])
+    const center = escpos([0x1b, 0x61, 0x01])
+    const left = escpos([0x1b, 0x61, 0x00])
+    const doubleH = escpos([0x1b, 0x64, 0x02])
+    const cut = escpos([0x1d, 0x56, 0x00])
+    const feed = escpos([0x0a, 0x0a, 0x0a])
+
+    const parts: Buffer[] = [
+      center,
+      doubleH,
+      bold,
+      Buffer.from("MEDIBOT PX\n"),
+      normal,
+      Buffer.from("════════════════════════════════\n"),
+      left,
+    ]
+    for (const line of lines.slice(1)) {
+      parts.push(Buffer.from(line + "\n"))
+    }
+    parts.push(center, Buffer.from("════════════════════════════════\n"), feed, cut)
+
+    fs.writeFileSync(device, Buffer.concat(parts))
+  } else {
+    console.log("[printer] " + text.split("\n").join("\n[printer] "))
+  }
+}
+
+function buildVitalsLines(v: VitalsData): string[] {
+  const when = v.recorded_at ? new Date(v.recorded_at) : new Date()
+  const date = when.toLocaleDateString()
+  const time = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+
+  const rows = [
+    `Weight:      ${v.weight_kg.toFixed(1)} kg`,
+    `Height:      ${v.height_cm.toFixed(0)} cm`,
+    `Temp:        ${v.temperature_c.toFixed(1)} C`,
+    `SpO2:        ${v.oxygen_saturation.toFixed(0)} %`,
+    `Heart Rate:  ${v.heart_rate.toFixed(0)} bpm`,
+  ]
+
+  return [
+    "MEDIBOT PX",
+    "Vitals Report",
+    `Date: ${date}`,
+    `Time: ${time}`,
+    "─".repeat(32),
+    ...rows,
+    "─".repeat(32),
+    "Thank you for visiting",
+    "Medibot PX",
+    "",
+    "",
+    "",
+  ]
+}
+
+export async function printVitals(v: VitalsData): Promise<void> {
+  const isRpi = process.platform === "linux" && process.arch === "arm64"
+
+  const lines = buildVitalsLines(v)
+  const text = lines.join("\n")
+
+  if (isRpi) {
+    const fs = await import("fs")
+    const device = getPrinterDevice()
 
     const bold = escpos([0x1b, 0x45, 0x01])
     const normal = escpos([0x1b, 0x45, 0x00])

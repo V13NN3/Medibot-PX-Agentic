@@ -29,6 +29,8 @@ function VitalsInner() {
   const [reading, setReading] = useState<Reading | null>(null)
   const [measuring, setMeasuring] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [printing, setPrinting] = useState(false)
+  const [printMsg, setPrintMsg] = useState("")
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState("")
 
@@ -76,6 +78,36 @@ function VitalsInner() {
       setError("Failed to save vitals")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const printCopy = async () => {
+    if (!reading) return
+    setPrinting(true)
+    setPrintMsg("")
+    try {
+      const res = await fetch("/api/vitals/print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          weight_kg: reading.weight_kg,
+          height_cm: reading.height_cm,
+          temperature_c: reading.temperature_c,
+          oxygen_saturation: reading.oxygen_saturation,
+          heart_rate: reading.heart_rate,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setPrintMsg("Printed")
+        setTimeout(() => setPrintMsg(""), 2500)
+      } else {
+        setPrintMsg("Print failed")
+      }
+    } catch {
+      setPrintMsg("Print failed")
+    } finally {
+      setPrinting(false)
     }
   }
 
@@ -146,10 +178,17 @@ function VitalsInner() {
       )}
 
       {reading && !saved && patientId && (
-        <button onClick={saveVitals} disabled={saving}
-          className="w-full py-4 rounded-2xl bg-teal text-white text-lg font-bold hover:bg-teal-dark transition-colors disabled:bg-gray-300">
-          {saving ? "Saving..." : "Save to Record"}
-        </button>
+        <div className="flex flex-col gap-3">
+          <button onClick={saveVitals} disabled={saving}
+            className="w-full py-4 rounded-2xl bg-teal text-white text-lg font-bold hover:bg-teal-dark transition-colors disabled:bg-gray-300">
+            {saving ? "Saving..." : "Save to Record"}
+          </button>
+          <button onClick={printCopy} disabled={printing}
+            className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-300 text-foreground text-lg font-bold hover:bg-gray-200 transition-colors disabled:bg-gray-100">
+            {printing ? "Printing..." : "Print Copy"}
+          </button>
+          {printMsg && <p className="text-xs text-center text-gray-500">{printMsg}</p>}
+        </div>
       )}
 
       {reading && !saved && !patientId && (
