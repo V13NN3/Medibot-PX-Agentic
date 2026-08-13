@@ -109,14 +109,14 @@ function AppointmentInner() {
 
   if (doctorId && !doctor) {
     return (
-      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
         <p className="text-sm text-gray-400 text-center py-8">Loading doctor info...</p>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
       {!doctorId && (
         <button onClick={() => router.push("/apps/find-doctor")}
           className="text-xs text-gray-500 hover:text-foreground transition-colors self-start">

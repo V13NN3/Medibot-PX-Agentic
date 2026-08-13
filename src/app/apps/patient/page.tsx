@@ -164,7 +164,7 @@ function PatientInner() {
 
   if (pageState === "detail" && patient) {
     return (
-      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
         <button onClick={() => { setPageState("search"); setPatient(null); setResults([]); setQuery("") }}
           className="text-xs text-gray-500 hover:text-foreground transition-colors self-start">
           &larr; Back to search
@@ -235,7 +235,7 @@ function PatientInner() {
 
   if (pageState === "new-patient") {
     return (
-      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
         <button onClick={() => setPageState("search")}
           className="text-xs text-gray-500 hover:text-foreground transition-colors self-start">
           &larr; Back
@@ -275,7 +275,7 @@ function PatientInner() {
 
   if (pageState === "verify") {
     return (
-      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
         <button onClick={() => setPageState("results")}
           className="text-xs text-gray-500 hover:text-foreground transition-colors self-start">
           &larr; Back to results
@@ -301,7 +301,7 @@ function PatientInner() {
   }
 
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
       <div>
         <h2 className="text-2xl font-semibold text-foreground">Patient Records</h2>
         <p className="text-sm text-gray-500">Search for a patient or register a new one</p>

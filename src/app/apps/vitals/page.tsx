@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation"
 import { useState, useEffect, Suspense, useCallback } from "react"
 import { Card } from "@/components/ui/card"
+import { speak } from "@/lib/tts"
 
 interface Reading {
   weight_kg: number
@@ -22,6 +23,13 @@ const MEASUREMENTS = [
   { key: "heart_rate", label: "Heart Rate", unit: "bpm", icon: "💓", fmt: (r: Reading) => `${r.heart_rate.toFixed(0)}` },
 ] as const
 
+function formatHeightFtIn(cm: number): string {
+  const totalIn = Math.round(cm / 2.54)
+  const ft = Math.floor(totalIn / 12)
+  const inch = totalIn % 12
+  return `${ft}'${inch}"`
+}
+
 function VitalsInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -29,7 +37,8 @@ function VitalsInner() {
 
   const [reading, setReading] = useState<Reading | null>(null)
   const [measuring, setMeasuring] = useState<string[]>([])
-  const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "measuring">("idle")
+  const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
+  const [countdownNum, setCountdownNum] = useState(3)
   const [heightEst, setHeightEst] = useState<{ cm: number; img: string } | null>(null)
   const [heightErr, setHeightErr] = useState("")
   const [saving, setSaving] = useState(false)
@@ -61,10 +70,21 @@ function VitalsInner() {
   }
 
   const measureHeight = async () => {
+    if (heightPhase === "instruct" || heightPhase === "countdown" || heightPhase === "measuring") return
     setHeightErr("")
     setHeightPhase("instruct")
+    speak("Please step back 3 steps from the camera and stand straight with your feet on the ground.")
     await new Promise((r) => setTimeout(r, 2500))
+
+    setHeightPhase("countdown")
+    speak("Get ready. Three, two, one.")
+    for (let n = 3; n >= 1; n--) {
+      setCountdownNum(n)
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+
     setHeightPhase("measuring")
+    speak("Please hold still")
     try {
       const res = await fetch("/api/vitals/height", { method: "POST" })
       const data = await res.json()
@@ -72,6 +92,9 @@ function VitalsInner() {
         const est = { cm: data.height_cm, img: data.image_base64 || "" }
         setHeightEst(est)
         setReading((prev) => (prev ? { ...prev, height_cm: est.cm } : prev))
+        const ft = formatHeightFtIn(est.cm).split("'")[0]
+        const inch = formatHeightFtIn(est.cm).split("'")[1].replace('"', "")
+        speak(`Your height is ${est.cm.toFixed(0)} centimeters, or ${ft} feet ${inch} inches.`)
       } else {
         setHeightErr(data.error || "Height measurement failed")
       }
@@ -164,8 +187,10 @@ function VitalsInner() {
     }
   }, [reveal])
 
+  const busy = heightPhase !== "idle"
+
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden overflow-hidden">
       <div>
         <h2 className="text-2xl font-semibold text-foreground">Vitals Check</h2>
         <p className="text-sm text-gray-500">
@@ -177,23 +202,36 @@ function VitalsInner() {
       <div className="grid grid-cols-2 gap-3">
         {MEASUREMENTS.map((m) => {
           const isMeasuring = measuring.includes(m.key)
-          const value = reading ? m.fmt(reading) : null
+          const isBusy = isMeasuring || (m.key === "height" && busy)
+          let value: string | null = null
+          let heightCm: number | null = null
+          if (m.key === "height") {
+            heightCm = reading?.height_cm ?? heightEst?.cm ?? null
+            value = heightCm != null ? heightCm.toFixed(0) : null
+          } else {
+            value = reading ? m.fmt(reading) : null
+          }
           return (
             <Card key={m.key} padding="md" className="flex flex-col items-center gap-1 text-center">
-              <span className={`text-2xl ${isMeasuring ? "animate-pulse" : ""}`}>{m.icon}</span>
+              <span className={`text-2xl ${isBusy ? "animate-pulse" : ""}`}>{m.icon}</span>
               <p className="text-xs text-gray-500">{m.label}</p>
-              {isMeasuring ? (
+              {isBusy ? (
                 <span className="flex items-center gap-1.5 text-sm text-primary font-medium">
                   <span className="inline-block w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                   Measuring
                 </span>
               ) : value ? (
-                <span className="flex items-center gap-1.5">
-                  <p className="text-lg font-bold text-foreground tabular-nums">
-                    {value} <span className="text-xs font-medium text-gray-400">{m.unit}</span>
-                  </p>
-                  <span className="text-sm text-success">&#10003;</span>
-                </span>
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="flex items-center gap-1.5">
+                    <p className="text-lg font-bold text-foreground tabular-nums">
+                      {value} <span className="text-xs font-medium text-gray-400">{m.unit}</span>
+                    </p>
+                    <span className="text-sm text-success">&#10003;</span>
+                  </span>
+                  {m.key === "height" && heightCm != null && (
+                    <p className="text-xs font-medium text-gray-500 tabular-nums">{formatHeightFtIn(heightCm)}</p>
+                  )}
+                </div>
               ) : (
                 <p className="text-sm text-gray-400">--</p>
               )}
@@ -215,7 +253,7 @@ function VitalsInner() {
             className="w-24 h-24 object-cover rounded-lg border border-gray-300" />
           <div>
             <p className="text-lg font-bold text-foreground">
-              Estimated height: {heightEst.cm.toFixed(0)} cm
+              Estimated height: {heightEst.cm.toFixed(0)} cm ({formatHeightFtIn(heightEst.cm)})
             </p>
             <span className="inline-block text-xs font-medium text-white bg-primary rounded-full px-2 py-0.5">AI estimate</span>
           </div>
@@ -228,21 +266,21 @@ function VitalsInner() {
 
       {!reading && !saved && (
         <div className="flex flex-col gap-3">
-          <button onClick={startMeasurement} disabled={measuring.length > 0 || heightPhase === "measuring"}
+          <button onClick={startMeasurement} disabled={measuring.length > 0 || busy}
             className="w-full py-6 rounded-2xl bg-primary text-white text-xl font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
             {measuring.length > 0 ? "Measuring..." : "START MEASUREMENT"}
           </button>
-          <button onClick={measureHeight} disabled={heightPhase === "instruct" || heightPhase === "measuring"}
+          <button onClick={measureHeight} disabled={busy}
             className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-300 text-foreground text-lg font-bold hover:bg-gray-200 transition-colors disabled:bg-gray-100">
-            {heightPhase === "instruct" ? "Step back 3 steps..." : heightPhase === "measuring" ? "Analyzing..." : "Measure Height (Camera)"}
+            {heightPhase === "instruct" ? "Step back 3 steps..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : "Measure Height (Camera)"}
           </button>
         </div>
       )}
 
       {reading && !saved && (
-        <button onClick={measureHeight} disabled={heightPhase === "instruct" || heightPhase === "measuring"}
+        <button onClick={measureHeight} disabled={busy}
           className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-300 text-foreground text-lg font-bold hover:bg-gray-200 transition-colors disabled:bg-gray-100">
-          {heightPhase === "instruct" ? "Step back 3 steps..." : heightPhase === "measuring" ? "Analyzing..." : "Re-measure Height"}
+          {heightPhase === "instruct" ? "Step back 3 steps..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : "Re-measure Height"}
         </button>
       )}
 
@@ -271,6 +309,14 @@ function VitalsInner() {
           <p className="text-4xl text-success">&#10003;</p>
           <p className="text-lg font-semibold text-foreground mt-2">Vitals Saved!</p>
           <p className="text-sm text-gray-500">Returning to patient record...</p>
+        </div>
+      )}
+
+      {heightPhase === "countdown" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div key={countdownNum} className="countdown-num text-[180px] font-black text-white select-none">
+            {countdownNum}
+          </div>
         </div>
       )}
     </div>

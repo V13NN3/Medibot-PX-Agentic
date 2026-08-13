@@ -213,7 +213,7 @@ function TelehealthInner() {
 
   if (callState === "connected") {
     return (
-      <div className="flex-1 flex flex-col p-4 gap-4 max-w-4xl mx-auto w-full">
+      <div className="flex-1 flex flex-col p-4 gap-4 max-w-4xl mx-auto w-full overflow-y-auto overflow-x-hidden">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-foreground">In Call</h2>

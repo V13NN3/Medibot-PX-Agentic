@@ -206,9 +206,14 @@ function buildVitalsLines(v: VitalsData): string[] {
   const date = when.toLocaleDateString()
   const time = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
+  const heightCm = v.height_cm
+  const totalIn = Math.round(heightCm / 2.54)
+  const ft = Math.floor(totalIn / 12)
+  const inch = totalIn % 12
+
   const rows = [
     `Weight:      ${v.weight_kg.toFixed(1)} kg`,
-    `Height:      ${v.height_cm.toFixed(0)} cm`,
+    `Height:      ${heightCm.toFixed(0)} cm (${ft}'${inch}")`,
     `Temp:        ${v.temperature_c.toFixed(1)} C`,
     `SpO2:        ${v.oxygen_saturation.toFixed(0)} %`,
     `Heart Rate:  ${v.heart_rate.toFixed(0)} bpm`,

@@ -74,7 +74,7 @@ export default function RxPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full">
+    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
       <div>
         <h2 className="text-2xl font-semibold text-foreground">My Prescription</h2>
         <p className="text-sm text-gray-500">View your prescription after seeing the doctor</p>
