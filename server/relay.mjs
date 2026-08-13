@@ -5,9 +5,9 @@ const RELAY_PORT = parseInt(process.env.RELAY_PORT || "3002", 10)
 const GROK_URL = process.env.GROK_VOICE_API_URL || "wss://api.x.ai/v1/realtime"
 const GROK_KEY = process.env.GROK_VOICE_API_KEY || ""
 
-const wss = new WebSocketServer({ host: "127.0.0.1", port: RELAY_PORT })
+const wss = new WebSocketServer({ host: "0.0.0.0", port: RELAY_PORT })
 
-console.log(`[relay] WebSocket relay listening on ws://127.0.0.1:${RELAY_PORT}`)
+console.log(`[relay] WebSocket relay listening on ws://0.0.0.0:${RELAY_PORT}`)
 
 wss.on("connection", (clientWs) => {
   console.log("[relay] browser connected")
