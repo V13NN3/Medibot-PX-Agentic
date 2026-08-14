@@ -202,7 +202,7 @@ export async function printPrescription(rx: PrescriptionData): Promise<void> {
   }
 }
 
-function buildVitalsLines(v: VitalsData): string[] {
+function buildVitalsParts(v: VitalsData): { header: string[]; body: string[] } {
   const when = v.recorded_at ? new Date(v.recorded_at) : new Date()
   const date = when.toLocaleDateString()
   const time = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -212,7 +212,9 @@ function buildVitalsLines(v: VitalsData): string[] {
   const ft = Math.floor(totalIn / 12)
   const inch = totalIn % 12
 
-  const rows = [
+  const header = ["Vitals Report", `Date: ${date}`, `Time: ${time}`]
+
+  const body = [
     `Weight:      ${v.weight_kg.toFixed(1)} kg`,
     `Height:      ${heightCm.toFixed(0)} cm (${ft}'${inch}")`,
     `Temp:        ${v.temperature_c.toFixed(1)} C`,
@@ -220,27 +222,14 @@ function buildVitalsLines(v: VitalsData): string[] {
     `Heart Rate:  ${v.heart_rate.toFixed(0)} bpm`,
   ]
 
-  return [
-    "MEDIBOT PX",
-    "Vitals Report",
-    `Date: ${date}`,
-    `Time: ${time}`,
-    "─".repeat(32),
-    ...rows,
-    "─".repeat(32),
-    "Thank you for visiting",
-    "Medibot PX",
-    "",
-    "",
-    "",
-  ]
+  return { header, body }
 }
 
 export async function printVitals(v: VitalsData): Promise<void> {
   const isRpi = process.platform === "linux" && process.arch === "arm64"
 
-  const lines = buildVitalsLines(v)
-  const text = lines.join("\n")
+  const { header, body } = buildVitalsParts(v)
+  const text = ["MEDIBOT PX", ...header, ...body].join("\n")
 
   if (isRpi) {
     const bold = escpos([0x1b, 0x45, 0x01])
@@ -250,6 +239,7 @@ export async function printVitals(v: VitalsData): Promise<void> {
     const doubleH = escpos([0x1b, 0x64, 0x02])
     const cut = escpos([0x1d, 0x56, 0x00])
     const feed = escpos([0x0a, 0x0a, 0x0a])
+    const sep = Buffer.from("════════════════════════════════\n")
 
     const parts: Buffer[] = [
       center,
@@ -257,13 +247,16 @@ export async function printVitals(v: VitalsData): Promise<void> {
       bold,
       Buffer.from("MEDIBOT PX\n"),
       normal,
-      Buffer.from("════════════════════════════════\n"),
-      left,
+      sep,
     ]
-    for (const line of lines.slice(1)) {
+    for (const line of header) {
       parts.push(Buffer.from(line + "\n"))
     }
-    parts.push(center, Buffer.from("════════════════════════════════\n"), feed, cut)
+    parts.push(sep, left)
+    for (const line of body) {
+      parts.push(Buffer.from(line + "\n"))
+    }
+    parts.push(feed, cut)
 
     await writePrintBytes(Buffer.concat(parts))
   } else {

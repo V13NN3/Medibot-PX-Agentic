@@ -16,12 +16,14 @@ interface Reading {
   image_base64?: string
 }
 
+type MeasurementKey = "weight" | "height" | "temperature" | "oxygen" | "heart_rate"
+
 const MEASUREMENTS = [
-  { key: "weight", label: "Weight", unit: "kg", icon: "⚖️", fmt: (r: Reading) => `${r.weight_kg.toFixed(1)}` },
-  { key: "height", label: "Height", unit: "cm", icon: "📏", fmt: (r: Reading) => `${r.height_cm.toFixed(0)}` },
-  { key: "temperature", label: "Temperature", unit: "°C", icon: "🌡️", fmt: (r: Reading) => `${r.temperature_c.toFixed(1)}` },
-  { key: "oxygen", label: "O₂", unit: "%", icon: "🫁", fmt: (r: Reading) => `${r.oxygen_saturation.toFixed(0)}` },
-  { key: "heart_rate", label: "Heart Rate", unit: "bpm", icon: "💓", fmt: (r: Reading) => `${r.heart_rate.toFixed(0)}` },
+  { key: "weight", label: "Weight", unit: "kg", icon: "⚖️", fmt: (v: number) => `${v.toFixed(1)}` },
+  { key: "height", label: "Height", unit: "cm", icon: "📏", fmt: (v: number) => `${v.toFixed(0)}` },
+  { key: "temperature", label: "Temperature", unit: "°C", icon: "🌡️", fmt: (v: number) => `${v.toFixed(1)}` },
+  { key: "oxygen", label: "O₂", unit: "%", icon: "🫁", fmt: (v: number) => `${v.toFixed(0)}` },
+  { key: "heart_rate", label: "Heart Rate", unit: "bpm", icon: "💓", fmt: (v: number) => `${v.toFixed(0)}` },
 ] as const
 
 function formatHeightFtIn(cm: number): string {
@@ -37,7 +39,9 @@ function VitalsInner() {
   const patientId = searchParams.get("patientId")
 
   const [reading, setReading] = useState<Reading | null>(null)
+  const [values, setValues] = useState<Partial<Record<MeasurementKey, number>>>({})
   const [measuring, setMeasuring] = useState<string[]>([])
+  const [starting, setStarting] = useState(false)
   const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
   const [countdownNum, setCountdownNum] = useState(3)
   const [heightEst, setHeightEst] = useState<{ cm: number; img: string } | null>(null)
@@ -49,29 +53,72 @@ function VitalsInner() {
   const [error, setError] = useState("")
 
   const reveal = useCallback((r: Reading) => {
+    setValues({
+      weight: r.weight_kg,
+      height: r.height_cm,
+      temperature: r.temperature_c,
+      oxygen: r.oxygen_saturation,
+      heart_rate: r.heart_rate,
+    })
     setReading(r)
     setMeasuring([])
   }, [])
 
   const startMeasurement = async () => {
     setError("")
-    setMeasuring(MEASUREMENTS.map((m) => m.key))
+    setValues({})
+    setReading(null)
+    setHeightEst(null)
+    setSaved(false)
+    setPrintMsg("")
+    setStarting(true)
+
+    let sensor: Reading
     try {
       const res = await fetch("/api/vitals/read")
-      const data = await res.json()
-      await new Promise((r) => setTimeout(r, 1200))
-      if (heightEst) {
-        data.height_cm = heightEst.cm
-      }
-      reveal(data)
+      sensor = await res.json()
     } catch {
       setMeasuring([])
+      setStarting(false)
       setError("Failed to read sensors")
+      return
     }
+
+    setMeasuring(["weight"])
+    await new Promise((r) => setTimeout(r, 1200))
+    setValues((prev) => ({ ...prev, weight: sensor.weight_kg }))
+    setMeasuring([])
+
+    const est = await measureHeight()
+
+    setMeasuring(["temperature"])
+    await new Promise((r) => setTimeout(r, 1200))
+    setValues((prev) => ({ ...prev, temperature: sensor.temperature_c }))
+    setMeasuring([])
+
+    setMeasuring(["oxygen"])
+    await new Promise((r) => setTimeout(r, 1200))
+    setValues((prev) => ({ ...prev, oxygen: sensor.oxygen_saturation }))
+    setMeasuring([])
+
+    setMeasuring(["heart_rate"])
+    await new Promise((r) => setTimeout(r, 1200))
+    setValues((prev) => ({ ...prev, heart_rate: sensor.heart_rate }))
+    setMeasuring([])
+    setReading({
+      weight_kg: sensor.weight_kg,
+      height_cm: est?.cm ?? sensor.height_cm ?? 0,
+      temperature_c: sensor.temperature_c,
+      oxygen_saturation: sensor.oxygen_saturation,
+      heart_rate: sensor.heart_rate,
+      _source: sensor._source,
+      image_base64: est?.img,
+    })
+    setStarting(false)
   }
 
-  const measureHeight = async () => {
-    if (heightPhase === "instruct" || heightPhase === "countdown" || heightPhase === "measuring") return
+  const measureHeight = async (): Promise<{ cm: number; img: string } | null> => {
+    if (heightPhase === "instruct" || heightPhase === "countdown" || heightPhase === "measuring") return null
     setHeightErr("")
     setHeightPhase("instruct")
     speak("Please step back 3 steps from the camera and stand straight with your feet on the ground.")
@@ -92,15 +139,18 @@ function VitalsInner() {
       if (data.height_cm) {
         const est = { cm: data.height_cm, img: data.image_base64 || "" }
         setHeightEst(est)
-        setReading((prev) => (prev ? { ...prev, height_cm: est.cm } : prev))
+        setValues((prev) => ({ ...prev, height: est.cm }))
         const ft = formatHeightFtIn(est.cm).split("'")[0]
         const inch = formatHeightFtIn(est.cm).split("'")[1].replace('"', "")
         speak(`Your height is ${est.cm.toFixed(0)} centimeters, or ${ft} feet ${inch} inches.`)
+        return est
       } else {
         setHeightErr(data.error || "Height measurement failed")
+        return null
       }
     } catch {
       setHeightErr("Failed to measure height")
+      return null
     } finally {
       setHeightPhase("idle")
     }
@@ -204,14 +254,9 @@ function VitalsInner() {
         {MEASUREMENTS.map((m) => {
           const isMeasuring = measuring.includes(m.key)
           const isBusy = isMeasuring || (m.key === "height" && busy)
-          let value: string | null = null
-          let heightCm: number | null = null
-          if (m.key === "height") {
-            heightCm = reading?.height_cm ?? heightEst?.cm ?? null
-            value = heightCm != null ? heightCm.toFixed(0) : null
-          } else {
-            value = reading ? m.fmt(reading) : null
-          }
+          const raw = values[m.key] ?? null
+          const value = raw != null ? m.fmt(raw) : null
+          const heightCm = m.key === "height" ? raw : null
           return (
             <Card key={m.key} padding="md" className="flex flex-col items-center gap-1 text-center">
               <span className={`text-2xl ${isBusy ? "animate-pulse" : ""}`}>{m.icon}</span>
@@ -237,7 +282,7 @@ function VitalsInner() {
                 <p className="text-sm text-gray-400">--</p>
               )}
               {m.key === "height" && (
-                <button onClick={measureHeight} disabled={busy}
+                <button onClick={measureHeight} disabled={starting || measuring.length > 0 || busy}
                   className="mt-1 px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
                   {heightPhase === "instruct" ? "Step back..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : value ? "Re-measure" : "Measure"}
                 </button>
@@ -272,30 +317,31 @@ function VitalsInner() {
       {heightErr && <p className="text-xs text-red-500 text-center">{heightErr}</p>}
 
       {!reading && !saved && (
-        <button onClick={startMeasurement} disabled={measuring.length > 0 || busy}
+        <button onClick={startMeasurement} disabled={starting || measuring.length > 0 || busy}
           className="w-full py-6 rounded-2xl bg-primary text-white text-xl font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
-          {measuring.length > 0 ? "Measuring..." : "START MEASUREMENT"}
+          {starting || measuring.length > 0 ? "Measuring..." : "START MEASUREMENT"}
         </button>
       )}
 
-      {reading && !saved && patientId && (
+      {reading && !saved && (
         <div className="flex flex-col gap-3">
-          <button onClick={saveVitals} disabled={saving}
-            className="w-full py-4 rounded-2xl bg-teal text-white text-lg font-bold hover:bg-teal-dark transition-colors disabled:bg-gray-300">
-            {saving ? "Saving..." : "Save to Record"}
-          </button>
           <button onClick={printCopy} disabled={printing}
-            className="w-full py-4 rounded-2xl bg-gray-100 border border-gray-300 text-foreground text-lg font-bold hover:bg-gray-200 transition-colors disabled:bg-gray-100">
-            {printing ? "Printing..." : "Print Copy"}
+            className="w-full py-5 rounded-2xl bg-primary text-white text-xl font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+            {printing ? "Printing..." : "Print Vitals Slip"}
           </button>
           {printMsg && <p className="text-xs text-center text-gray-500">{printMsg}</p>}
+          {patientId && (
+            <button onClick={saveVitals} disabled={saving}
+              className="w-full py-4 rounded-2xl bg-teal text-white text-lg font-bold hover:bg-teal-dark transition-colors disabled:bg-gray-300">
+              {saving ? "Saving..." : "Save to Record"}
+            </button>
+          )}
+          {!patientId && (
+            <p className="text-xs text-gray-400 text-center">
+              Measurements complete. The AI assistant will save these to your patient record.
+            </p>
+          )}
         </div>
-      )}
-
-      {reading && !saved && !patientId && (
-        <p className="text-xs text-gray-400 text-center">
-          Measurements complete. The AI assistant will save these to your patient record.
-        </p>
       )}
 
       {saved && (
