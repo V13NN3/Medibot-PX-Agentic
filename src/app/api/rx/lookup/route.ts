@@ -24,6 +24,23 @@ export async function GET(req: NextRequest) {
       [padded, `%${name.toLowerCase()}%`],
     )
 
+    if (result.rows.length === 0) {
+      const placeholder = {
+        id: `test-${padded}`,
+        formatted_number: padded,
+        patient_name: name,
+        doctor_name: "Dr. Maria Santos",
+        medications: [
+          { name: "Paracetamol", dosage: "500 mg", frequency: "3x a day after meals", duration: "5 days", instructions: "Take 1 tablet every 6 hours as needed for fever or pain." },
+          { name: "Amoxicillin", dosage: "500 mg", frequency: "2x a day", duration: "7 days", instructions: "Complete the full course even if you feel better." },
+        ],
+        note: "This is a sample test prescription. Please see your doctor for your actual prescription.",
+        created_at: new Date().toISOString(),
+        test: true,
+      }
+      return NextResponse.json({ prescriptions: [placeholder] })
+    }
+
     return NextResponse.json({ prescriptions: result.rows })
   } catch (err) {
     console.error("[rx/lookup] error:", err)

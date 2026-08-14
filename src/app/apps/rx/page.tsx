@@ -19,6 +19,7 @@ interface Prescription {
   medications: Medication[]
   note?: string
   created_at: string
+  test?: boolean
 }
 
 export default function RxPage() {
@@ -127,7 +128,10 @@ export default function RxPage() {
             <Card key={rx.id} padding="none" className="overflow-hidden">
               <div className="px-5 py-3 bg-teal/5 border-b border-teal/20 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-teal uppercase tracking-wider font-medium">Prescription</p>
+                  <p className="text-xs text-teal uppercase tracking-wider font-medium">
+                    Prescription
+                    {rx.test && <span className="ml-2 inline-block text-[10px] font-bold text-white bg-amber-500 rounded-full px-2 py-0.5 normal-case">Test</span>}
+                  </p>
                   <p className="text-lg font-bold text-foreground tabular-nums">{rx.formatted_number}</p>
                 </div>
                 <button onClick={() => printRx(rx)} disabled={printing === rx.id}
