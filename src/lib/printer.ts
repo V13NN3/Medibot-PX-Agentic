@@ -140,37 +140,34 @@ export async function printTicket(ticket: TicketData): Promise<void> {
   }
 }
 
-function buildPrescriptionLines(rx: PrescriptionData): string[] {
-  const lines: string[] = [
-    "MEDIBOT PX",
+function buildPrescriptionParts(rx: PrescriptionData): { header: string[]; body: string[] } {
+  const header = [
     "Prescription",
     `Ticket: ${rx.formatted_number}`,
     `Patient: ${rx.patient_name}`,
   ]
-  if (rx.doctor_name) lines.push(`Doctor: ${rx.doctor_name}`)
-  lines.push("─".repeat(32))
+  if (rx.doctor_name) header.push(`Doctor: ${rx.doctor_name}`)
+
+  const body: string[] = []
   ;(rx.medications || []).forEach((m, i) => {
-    lines.push(`${i + 1}. ${m.name}`)
-    if (m.dosage) lines.push(`   Dosage: ${m.dosage}`)
-    if (m.frequency) lines.push(`   Frequency: ${m.frequency}`)
-    if (m.duration) lines.push(`   Duration: ${m.duration}`)
-    if (m.instructions) lines.push(`   Instructions: ${m.instructions}`)
+    body.push(`${i + 1}. ${m.name}`)
+    if (m.dosage) body.push(`   Dosage: ${m.dosage}`)
+    if (m.frequency) body.push(`   Frequency: ${m.frequency}`)
+    if (m.duration) body.push(`   Duration: ${m.duration}`)
+    if (m.instructions) body.push(`   Instructions: ${m.instructions}`)
   })
   if (rx.note) {
-    lines.push("─".repeat(32))
-    lines.push(`Note: ${rx.note}`)
+    body.push(`Note: ${rx.note}`)
   }
-  lines.push("─".repeat(32))
-  lines.push("Follow your doctor's instructions.")
-  lines.push("", "", "")
-  return lines
+  body.push("Follow your doctor's instructions.")
+  return { header, body }
 }
 
 export async function printPrescription(rx: PrescriptionData): Promise<void> {
   const isRpi = process.platform === "linux" && process.arch === "arm64"
 
-  const lines = buildPrescriptionLines(rx)
-  const text = lines.join("\n")
+  const { header, body } = buildPrescriptionParts(rx)
+  const text = ["MEDIBOT PX", ...header, ...body].join("\n")
 
   if (isRpi) {
     const bold = escpos([0x1b, 0x45, 0x01])
@@ -180,6 +177,7 @@ export async function printPrescription(rx: PrescriptionData): Promise<void> {
     const doubleH = escpos([0x1b, 0x64, 0x02])
     const cut = escpos([0x1d, 0x56, 0x00])
     const feed = escpos([0x0a, 0x0a, 0x0a])
+    const sep = Buffer.from("════════════════════════════════\n")
 
     const parts: Buffer[] = [
       center,
@@ -187,13 +185,16 @@ export async function printPrescription(rx: PrescriptionData): Promise<void> {
       bold,
       Buffer.from("MEDIBOT PX\n"),
       normal,
-      Buffer.from("════════════════════════════════\n"),
-      left,
+      sep,
     ]
-    for (const line of lines.slice(1)) {
+    for (const line of header) {
       parts.push(Buffer.from(line + "\n"))
     }
-    parts.push(center, Buffer.from("════════════════════════════════\n"), feed, cut)
+    parts.push(sep, left)
+    for (const line of body) {
+      parts.push(Buffer.from(line + "\n"))
+    }
+    parts.push(feed, cut)
 
     await writePrintBytes(Buffer.concat(parts))
   } else {

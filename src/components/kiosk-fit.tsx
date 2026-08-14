@@ -25,13 +25,13 @@ export function KioskFit({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <div ref={outerRef} className="fixed inset-0 overflow-hidden flex items-start justify-start">
+    <div ref={outerRef} className="fixed inset-0 overflow-hidden flex items-center justify-center">
       <div
         style={{
           width: DESIGN_WIDTH,
           height: DESIGN_HEIGHT,
           transform: `scale(${scale})`,
-          transformOrigin: "top left",
+          transformOrigin: "center",
         }}
       >
         {children}
