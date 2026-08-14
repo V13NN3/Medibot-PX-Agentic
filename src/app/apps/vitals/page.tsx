@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { useState, useEffect, Suspense, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { CountdownOverlay } from "@/components/countdown-overlay"
+import { MeasureOverlay } from "@/components/measure-overlay"
 import { speak } from "@/lib/tts"
 
 interface Reading {
@@ -17,6 +18,13 @@ interface Reading {
 }
 
 type MeasurementKey = "weight" | "height" | "temperature" | "oxygen" | "heart_rate"
+
+const STEP_NOTES: Record<"weight" | "temperature" | "oxygen" | "heart_rate", string> = {
+  weight: "Please step on the weighing platform and stand still.",
+  temperature: "Temperature will be measured from the eye of the robot. Please look toward the robot's eye.",
+  oxygen: "Pulse oximeter will be measured from the mouth area of the robot. Please place your finger near the robot's mouth.",
+  heart_rate: "Heart rate will be measured from the mouth area of the robot. Please place your finger near the robot's mouth.",
+}
 
 const MEASUREMENTS = [
   { key: "weight", label: "Weight", unit: "kg", icon: "⚖️", fmt: (v: number) => `${v.toFixed(1)}` },
@@ -42,6 +50,7 @@ function VitalsInner() {
   const [values, setValues] = useState<Partial<Record<MeasurementKey, number>>>({})
   const [measuring, setMeasuring] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
+  const [stepOverlay, setStepOverlay] = useState<{ key: "weight" | "temperature" | "oxygen" | "heart_rate"; calculating: boolean } | null>(null)
   const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
   const [countdownNum, setCountdownNum] = useState(3)
   const [heightEst, setHeightEst] = useState<{ cm: number; img: string } | null>(null)
@@ -64,6 +73,18 @@ function VitalsInner() {
     setMeasuring([])
   }, [])
 
+  const runStep = async (key: "weight" | "temperature" | "oxygen" | "heart_rate", sensorValue: number) => {
+    setMeasuring([key])
+    setStepOverlay({ key, calculating: false })
+    speak(STEP_NOTES[key])
+    await new Promise((r) => setTimeout(r, 2500))
+    setStepOverlay({ key, calculating: true })
+    await new Promise((r) => setTimeout(r, 1200))
+    setValues((prev) => ({ ...prev, [key]: sensorValue }))
+    setMeasuring([])
+    setStepOverlay(null)
+  }
+
   const startMeasurement = async () => {
     setError("")
     setValues({})
@@ -84,27 +105,14 @@ function VitalsInner() {
       return
     }
 
-    setMeasuring(["weight"])
-    await new Promise((r) => setTimeout(r, 1200))
-    setValues((prev) => ({ ...prev, weight: sensor.weight_kg }))
-    setMeasuring([])
+    await runStep("weight", sensor.weight_kg)
 
     const est = await measureHeight()
 
-    setMeasuring(["temperature"])
-    await new Promise((r) => setTimeout(r, 1200))
-    setValues((prev) => ({ ...prev, temperature: sensor.temperature_c }))
-    setMeasuring([])
+    await runStep("temperature", sensor.temperature_c)
+    await runStep("oxygen", sensor.oxygen_saturation)
+    await runStep("heart_rate", sensor.heart_rate)
 
-    setMeasuring(["oxygen"])
-    await new Promise((r) => setTimeout(r, 1200))
-    setValues((prev) => ({ ...prev, oxygen: sensor.oxygen_saturation }))
-    setMeasuring([])
-
-    setMeasuring(["heart_rate"])
-    await new Promise((r) => setTimeout(r, 1200))
-    setValues((prev) => ({ ...prev, heart_rate: sensor.heart_rate }))
-    setMeasuring([])
     setReading({
       weight_kg: sensor.weight_kg,
       height_cm: est?.cm ?? sensor.height_cm ?? 0,
@@ -353,6 +361,15 @@ function VitalsInner() {
       )}
 
       <CountdownOverlay number={countdownNum} show={heightPhase === "countdown"} />
+
+      {stepOverlay && (
+        <MeasureOverlay
+          icon={MEASUREMENTS.find((m) => m.key === stepOverlay.key)?.icon ?? ""}
+          label={MEASUREMENTS.find((m) => m.key === stepOverlay.key)?.label ?? ""}
+          note={STEP_NOTES[stepOverlay.key]}
+          calculating={stepOverlay.calculating}
+        />
+      )}
     </div>
   )
 }
