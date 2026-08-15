@@ -108,7 +108,7 @@ function DiagnosticsInner() {
         </div>
       </Card>
 
-      <Card padding="md" className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto">
+      <Card padding="md" className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto kiosk-scroll">
         {messages.length === 0 && !loading ? (
           <p className="text-sm text-gray-400 text-center py-4">
             Describe your symptom below or tap a chip to get started.
