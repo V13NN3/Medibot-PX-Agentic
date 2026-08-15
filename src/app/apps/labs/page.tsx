@@ -129,29 +129,29 @@ export default function LabsPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
+    <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground">Lab Results</h2>
-        <p className="text-sm text-gray-500">View X-rays, blood tests, and other lab results</p>
+        <h2 className="text-lg font-semibold text-foreground">Lab Results</h2>
+        <p className="text-xs text-gray-500">View X-rays, blood tests, and other lab results</p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <span className="text-[11px] px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+      <div className="flex flex-wrap gap-1.5">
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
           Panel: Basic Metabolic
         </span>
-        <span className="text-[11px] px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
           {outOfRange > 0 ? `${outOfRange} out of range` : "All in range"}
         </span>
       </div>
 
       <Card padding="none" className="overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Camera</p>
         </div>
-        <div className="p-4 flex flex-col items-center gap-3">
+        <div className="p-3 flex flex-col items-center gap-2">
           {!cameraOn ? (
             <button onClick={startCamera}
-              className="w-full py-4 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors">
+              className="w-full py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors">
               Open Camera
             </button>
           ) : (
@@ -161,11 +161,11 @@ export default function LabsPage() {
               <canvas ref={canvasRef} className="hidden" />
               <div className="flex gap-2 w-full">
                 <button onClick={capturePhoto} disabled={capturing || interpreting}
-                  className="flex-1 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
                   {capturing ? "Capturing..." : "📸 Capture Photo"}
                 </button>
                 <button onClick={stopCamera}
-                  className="px-4 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                  className="px-4 py-2.5 rounded-xl bg-gray-200 dark:bg-gray-700 text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
                   Close
                 </button>
               </div>
@@ -176,10 +176,10 @@ export default function LabsPage() {
 
       {captured && (
         <Card padding="none" className="overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Captured Image</p>
           </div>
-          <div className="p-4">
+          <div className="p-3">
             <img src={`data:image/jpeg;base64,${captured}`} alt="Captured lab result"
               className="w-full rounded-xl" />
           </div>
@@ -187,16 +187,16 @@ export default function LabsPage() {
       )}
 
       <Card padding="none" className="overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Analysis Results</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-gray-400 uppercase tracking-wider">
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium text-right">Value</th>
-                <th className="px-4 py-2 font-medium text-right">Reference</th>
+                <th className="px-3 py-1.5 font-medium">Name</th>
+                <th className="px-3 py-1.5 font-medium text-right">Value</th>
+                <th className="px-3 py-1.5 font-medium text-right">Reference</th>
               </tr>
             </thead>
             <tbody>
@@ -204,11 +204,11 @@ export default function LabsPage() {
                 const status = getRangeStatus(row.value, row.referenceLow, row.referenceHigh)
                 return (
                   <tr key={row.id} className="border-t border-gray-50 dark:border-gray-800/60">
-                    <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{row.name}</td>
-                    <td className={`px-4 py-2 text-right font-medium ${status === "normal" ? "text-foreground" : status === "warning" ? "text-warning" : "text-danger"}`}>
+                    <td className="px-3 py-1.5 text-gray-600 dark:text-gray-300">{row.name}</td>
+                    <td className={`px-3 py-1.5 text-right font-medium ${status === "normal" ? "text-foreground" : status === "warning" ? "text-warning" : "text-danger"}`}>
                       {row.value} {row.unit}
                     </td>
-                    <td className="px-4 py-2 text-right text-gray-400 whitespace-nowrap">
+                    <td className="px-3 py-1.5 text-right text-gray-400 whitespace-nowrap">
                       {row.referenceLow}&ndash;{row.referenceHigh} {row.unit}
                     </td>
                   </tr>
@@ -220,19 +220,19 @@ export default function LabsPage() {
       </Card>
 
       {interpreting && (
-        <Card padding="md" className="text-center">
+        <Card padding="md" className="text-center py-2">
           <p className="text-sm text-gray-500">AI is analyzing your lab results...</p>
         </Card>
       )}
 
       {interpretation && (
-        <Card padding="md" className="flex flex-col gap-3">
+        <Card padding="md" className="flex flex-col gap-2 py-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">AI Interpretation</p>
 
           {interpretation.results && interpretation.results.length > 0 && (
             <div className="divide-y divide-gray-50 dark:divide-gray-800/60">
               {interpretation.results.map((r, i) => (
-                <div key={i} className="flex items-center justify-between py-1.5 text-sm">
+                <div key={i} className="flex items-center justify-between py-1 text-sm">
                   <span className="text-gray-600 dark:text-gray-300">{r.name}</span>
                   <span className={`font-medium ${r.status ? statusColor[r.status as keyof typeof statusColor] || "text-foreground" : "text-foreground"}`}>
                     {r.value} {r.unit}
@@ -243,12 +243,12 @@ export default function LabsPage() {
           )}
 
           {interpretation.summary && (
-            <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+            <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-xl p-2.5">
               {interpretation.summary}
             </p>
           )}
 
-          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-2.5 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
             <span>⚕️</span>
             <p>I&apos;m an AI assistant, not a doctor. This information is for reference only. Please consult a qualified healthcare professional for proper diagnosis and treatment.</p>
           </div>

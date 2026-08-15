@@ -214,18 +214,18 @@ function PatientInner() {
 
   if (pageState === "detail" && patient) {
     return (
-      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
         <button onClick={() => { setPageState("search"); setPatient(null); setResults([]); setQuery("") }}
           className="text-xs text-gray-500 hover:text-foreground transition-colors self-start">
           &larr; Back to search
         </button>
 
-        <Card className="flex items-center gap-4" padding="md">
+        <Card className="flex items-center gap-3" padding="md">
           {patient.photo ? (
             <img src={`data:image/jpeg;base64,${patient.photo}`} alt={patient.name}
-              className="w-14 h-14 shrink-0 rounded-full object-cover border border-gray-200" />
+              className="w-12 h-12 shrink-0 rounded-full object-cover border border-gray-200" />
           ) : (
-            <div className="w-14 h-14 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-semibold">
+            <div className="w-12 h-12 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-semibold">
               {patient.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
             </div>
           )}
@@ -233,14 +233,14 @@ function PatientInner() {
             <p className="text-xs font-mono text-gray-400 uppercase tracking-wider">
               ID {patient.id.slice(0, 8)} &middot; Age {calcAge(patient.dob)} &middot; {patient.sex}
             </p>
-            <h2 className="text-xl font-semibold text-foreground truncate">{patient.name}</h2>
+            <h2 className="text-lg font-semibold text-foreground truncate">{patient.name}</h2>
             <p className="text-xs text-gray-500">DOB: {formatDate(patient.dob)}</p>
           </div>
         </Card>
 
         {patient.address || patient.contact_number ? (
-          <Card padding="md">
-            <div className="grid grid-cols-2 gap-2 text-sm">
+          <Card padding="md" className="py-2">
+            <div className="grid grid-cols-2 gap-1 text-sm">
               {patient.address && (
                 <>
                   <span className="text-gray-500">Address</span>
@@ -257,8 +257,8 @@ function PatientInner() {
           </Card>
         ) : null}
 
-        <Card padding="md">
-          <div className="flex items-center justify-between mb-3">
+        <Card padding="md" className="py-3">
+          <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-foreground">Vitals History</h3>
             <button onClick={goToVitals}
               className="text-xs font-semibold text-primary hover:text-primary-dark transition-colors">
@@ -266,13 +266,13 @@ function PatientInner() {
             </button>
           </div>
           {vitalsHistory.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">
+            <p className="text-sm text-gray-400 text-center py-2">
               No vitals recorded yet.
             </p>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {vitalsHistory.map((v) => (
-                <div key={v.id} className="py-2 flex items-center justify-between text-sm">
+                <div key={v.id} className="py-1.5 flex items-center justify-between text-sm">
                   <span className="text-xs text-gray-400 font-mono">
                     {new Date(v.recorded_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </span>
@@ -290,30 +290,30 @@ function PatientInner() {
 
   if (pageState === "new-patient") {
     return (
-      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
         <button onClick={() => setPageState("search")}
           className="text-xs text-gray-500 hover:text-foreground transition-colors self-start">
           &larr; Back
         </button>
         <div>
-          <h2 className="text-2xl font-semibold text-foreground">New Patient</h2>
-          <p className="text-sm text-gray-500">Register a new patient</p>
+          <h2 className="text-lg font-semibold text-foreground">New Patient</h2>
+          <p className="text-xs text-gray-500">Register a new patient</p>
         </div>
-        <Card padding="md" className="flex flex-col gap-4">
+        <Card padding="md" className="flex flex-col gap-2 py-3">
           {newForm.photo ? (
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-1.5">
               <img src={`data:image/jpeg;base64,${newForm.photo}`} alt="Patient face"
-                className="w-28 h-28 rounded-full object-cover border-2 border-primary" />
+                className="w-20 h-20 rounded-full object-cover border-2 border-primary" />
               <button onClick={captureFace} disabled={facePhase !== "idle"}
-                className="px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 text-xs font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                className="px-4 py-1.5 rounded-lg bg-gray-100 border border-gray-300 text-xs font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
                 {facePhase === "instruct" ? "Look at the camera..." : facePhase === "countdown" ? "Get ready..." : facePhase === "capturing" ? "Capturing..." : "Re-capture Photo"}
               </button>
               <p className="text-[11px] text-gray-400 text-center">A face photo is required for your record.<br />It will remain private and confidential.</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-1.5">
               <button onClick={captureFace} disabled={facePhase !== "idle"}
-                className="px-5 py-3 rounded-xl bg-gray-100 border border-gray-300 text-sm font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                className="px-5 py-2 rounded-xl bg-gray-100 border border-gray-300 text-sm font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
                 {facePhase === "instruct" ? "Look at the camera..." : facePhase === "countdown" ? "Get ready..." : facePhase === "capturing" ? "Capturing..." : "📷 Capture Photo"}
               </button>
               <p className="text-[11px] text-gray-400 text-center">
@@ -325,12 +325,12 @@ function PatientInner() {
 
           {(["name", "dob", "sex", "address", "contact_number"] as const).map((field) => (
             <div key={field}>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
                 {field === "dob" ? "Date of Birth (YYYY-MM-DD)" : field.replace("_", " ")}
               </label>
               {field === "sex" ? (
                 <select value={newForm.sex} onChange={(e) => setNewForm({ ...newForm, sex: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm">
+                  className="w-full mt-0.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm">
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                 </select>
@@ -338,12 +338,12 @@ function PatientInner() {
                 <input type={field === "dob" ? "date" : "text"} value={newForm[field]}
                   onChange={(e) => setNewForm({ ...newForm, [field]: e.target.value })}
                   placeholder={field === "dob" ? "YYYY-MM-DD" : field === "contact_number" ? "+63" : ""}
-                  className="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+                  className="w-full mt-0.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
               )}
             </div>
           ))}
           <button onClick={createPatient} disabled={loading || !newForm.name || !newForm.dob}
-            className="w-full py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+            className="w-full py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
             {loading ? "Registering..." : "Register Patient"}
           </button>
         </Card>
@@ -354,12 +354,12 @@ function PatientInner() {
 
   if (pageState === "verify") {
     return (
-      <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
         <button onClick={() => setPageState(query.length >= 2 ? "results" : "search")}
           className="text-xs text-gray-500 hover:text-foreground transition-colors self-start">
           &larr; Back
         </button>
-        <Card padding="md" className="flex flex-col items-center gap-4 text-center">
+        <Card padding="md" className="flex flex-col items-center gap-3 text-center py-4">
           <p className="text-sm text-gray-500">Verify identity</p>
           <p className="text-lg font-semibold text-foreground">
             {[...results, ...records].find((r) => r.id === selectedId)?.name}
@@ -367,11 +367,11 @@ function PatientInner() {
           <div className="w-full">
             <input type="date" value={verifyDob}
               onChange={(e) => setVerifyDob(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
+              className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm" />
           </div>
           {verifyError && <p className="text-xs text-red-500">{verifyError}</p>}
           <button onClick={verifyPatient} disabled={loading || !verifyDob}
-            className="w-full py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+            className="w-full py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
             {loading ? "Verifying..." : "Verify & Open Record"}
           </button>
         </Card>
@@ -398,26 +398,26 @@ function PatientInner() {
   )
 
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-hidden">
+    <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-hidden">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground">Patient Records</h2>
-        <p className="text-sm text-gray-500">Search for a patient or register a new one</p>
+        <h2 className="text-lg font-semibold text-foreground">Patient Records</h2>
+        <p className="text-xs text-gray-500">Search for a patient or register a new one</p>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <input type="search" value={query} placeholder="Search by name..."
             onChange={(e) => doSearch(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm shadow-sm" />
+            className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm shadow-sm" />
         </div>
         <button onClick={() => setPageState("new-patient")}
-          className="shrink-0 px-4 py-3 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-colors">
+          className="shrink-0 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-colors">
           + New Patient
         </button>
       </div>
 
       {loading && query.length >= 2 && (
-        <p className="text-sm text-gray-400 text-center py-4">Searching...</p>
+        <p className="text-sm text-gray-400 text-center py-2">Searching...</p>
       )}
 
       {pageState === "results" && results.length > 0 && (
@@ -427,10 +427,10 @@ function PatientInner() {
       )}
 
       {pageState === "search" && !query && (
-        <div className="flex flex-col gap-2">
+        <div className="flex-1 min-h-0 flex flex-col gap-1.5 overflow-y-auto">
           <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Recent Patients</p>
           {records.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">No patients yet.</p>
+            <p className="text-sm text-gray-400 text-center py-4">No patients yet.</p>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden bg-card dark:bg-card-dark">
               {records.map(patientRow)}

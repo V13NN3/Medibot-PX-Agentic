@@ -62,13 +62,13 @@ function DiagnosticsInner() {
   }
 
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
+    <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-hidden">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground">Symptom Explorer</h2>
-        <p className="text-sm text-gray-500">Talk to the assistant about your symptoms</p>
+        <h2 className="text-lg font-semibold text-foreground">Symptom Explorer</h2>
+        <p className="text-xs text-gray-500">Talk to the assistant about your symptoms</p>
       </div>
 
-      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-4 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-3 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
         <span className="text-lg">⚠️</span>
         <p>
           <strong>Educational use only while you wait for your doctor.</strong> This is not a diagnosis.
@@ -76,7 +76,7 @@ function DiagnosticsInner() {
         </p>
       </div>
 
-      <Card padding="none" className="flex flex-col gap-3 p-4">
+      <Card padding="none" className="flex flex-col gap-2 p-3">
         <div className="flex gap-2">
           <input
             type="number"
@@ -85,12 +85,12 @@ function DiagnosticsInner() {
             placeholder="Age (optional)"
             min={0}
             max={130}
-            className="w-24 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className="w-24 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
           />
           <select
             value={sex}
             onChange={(e) => setSex(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
           >
             <option value="">Sex (optional)</option>
             <option value="Male">Male</option>
@@ -98,19 +98,19 @@ function DiagnosticsInner() {
           </select>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {QUICK_SYMPTOMS.map((s) => (
             <button key={s} type="button" onClick={() => send(s)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+              className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
               {s}
             </button>
           ))}
         </div>
       </Card>
 
-      <Card padding="md" className="flex flex-col gap-3 min-h-[240px]">
+      <Card padding="md" className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-auto">
         {messages.length === 0 && !loading ? (
-          <p className="text-sm text-gray-400 text-center py-8">
+          <p className="text-sm text-gray-400 text-center py-4">
             Describe your symptom below or tap a chip to get started.
           </p>
         ) : (
@@ -154,10 +154,10 @@ function DiagnosticsInner() {
           onKeyDown={(e) => e.key === "Enter" && send(input)}
           placeholder="Describe your symptom..."
           maxLength={300}
-          className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
         <button type="button" onClick={() => send(input)} disabled={loading || !input.trim()}
-          className="px-5 py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+          className="px-4 py-2 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
           Send
         </button>
       </div>

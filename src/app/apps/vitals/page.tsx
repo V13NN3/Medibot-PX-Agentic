@@ -331,12 +331,12 @@ function VitalsInner() {
   const busy = heightPhase !== "idle"
 
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden overflow-hidden">
+    <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-hidden">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground select-none cursor-default" onClick={onTripleTap}>
+        <h2 className="text-lg font-semibold text-foreground select-none cursor-default" onClick={onTripleTap}>
           Vitals Check
         </h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-xs text-gray-500">
           Measure weight, height &amp; temperature
           {patientId && <span className="text-gray-400"> · Patient {patientId.slice(0, 8)}</span>}
         </p>
@@ -377,7 +377,7 @@ function VitalsInner() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2">
         {MEASUREMENTS.map((m) => {
           const isMeasuring = measuring.includes(m.key)
           const isBusy = isMeasuring || (m.key === "height" && busy)
@@ -385,18 +385,18 @@ function VitalsInner() {
           const value = raw != null ? m.fmt(raw) : null
           const heightCm = m.key === "height" ? raw : null
           return (
-            <Card key={m.key} padding="md" className="flex flex-col items-center gap-1 text-center">
-              <span className={`text-2xl ${isBusy ? "animate-pulse" : ""}`}>{m.icon}</span>
-              <p className="text-xs text-gray-500">{m.label}</p>
+            <Card key={m.key} padding="md" className="flex flex-col items-center gap-0.5 text-center py-2">
+              <span className={`text-xl ${isBusy ? "animate-pulse" : ""}`}>{m.icon}</span>
+              <p className="text-[11px] text-gray-500">{m.label}</p>
               {isBusy ? (
                 <span className="flex items-center gap-1.5 text-sm text-primary font-medium">
                   <span className="inline-block w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                   Measuring
                 </span>
               ) : value ? (
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="flex items-center gap-1.5">
-                    <p className="text-lg font-bold text-foreground tabular-nums">
+                <div className="flex flex-col items-center gap-0">
+                  <span className="flex items-center gap-1">
+                    <p className="text-base font-bold text-foreground tabular-nums">
                       {value} <span className="text-xs font-medium text-gray-400">{m.unit}</span>
                     </p>
                     <span className="text-sm text-success">&#10003;</span>
@@ -410,7 +410,7 @@ function VitalsInner() {
               )}
               {m.key === "height" && (
                 <button onClick={measureHeight} disabled={starting || measuring.length > 0 || busy}
-                  className="mt-1 px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                  className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
                   {heightPhase === "instruct" ? "Step back..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : value ? "Re-measure" : "Measure"}
                 </button>
               )}
@@ -445,21 +445,21 @@ function VitalsInner() {
 
       {!reading && !saved && (
         <button onClick={startMeasurement} disabled={starting || measuring.length > 0 || busy}
-          className="w-full py-6 rounded-2xl bg-primary text-white text-xl font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+          className="w-full py-3 rounded-2xl bg-primary text-white text-lg font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
           {starting || measuring.length > 0 ? "Measuring..." : "START MEASUREMENT"}
         </button>
       )}
 
       {reading && !saved && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           <button onClick={printCopy} disabled={printing}
-            className="w-full py-5 rounded-2xl bg-primary text-white text-xl font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
+            className="w-full py-2.5 rounded-2xl bg-primary text-white text-lg font-bold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
             {printing ? "Printing..." : "Print Vitals Slip"}
           </button>
           {printMsg && <p className="text-xs text-center text-gray-500">{printMsg}</p>}
           {patientId && (
             <button onClick={saveVitals} disabled={saving}
-              className="w-full py-4 rounded-2xl bg-teal text-white text-lg font-bold hover:bg-teal-dark transition-colors disabled:bg-gray-300">
+              className="w-full py-2.5 rounded-2xl bg-teal text-white text-base font-bold hover:bg-teal-dark transition-colors disabled:bg-gray-300">
               {saving ? "Saving..." : "Save to Record"}
             </button>
           )}

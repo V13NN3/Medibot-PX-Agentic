@@ -240,10 +240,10 @@ function TelehealthInner() {
   }
 
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-2xl mx-auto w-full">
+    <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-2xl mx-auto w-full overflow-y-auto overflow-x-hidden">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground">Telehealth</h2>
-        <p className="text-sm text-gray-500">Video call with your doctor</p>
+        <h2 className="text-lg font-semibold text-foreground">Telehealth</h2>
+        <p className="text-xs text-gray-500">Video call with your doctor</p>
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}
@@ -290,18 +290,18 @@ function TelehealthInner() {
         <>
           <p className="text-sm text-gray-500">Call an available doctor right now.</p>
 
-          {loading && <p className="text-sm text-gray-400 text-center py-4">Loading...</p>}
+          {loading && <p className="text-sm text-gray-400 text-center py-2">Loading...</p>}
 
           {!loading && doctors.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-success uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <p className="text-[11px] font-semibold text-success uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-success" />
                 Available Now
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 {doctors.map((d) => (
-                  <Card key={d.id} padding="none" className="flex items-center gap-3 px-4 py-3">
-                    <span className="w-10 h-10 rounded-full bg-teal/10 text-teal text-sm font-semibold flex items-center justify-center shrink-0">
+                  <Card key={d.id} padding="none" className="flex items-center gap-3 px-3 py-2">
+                    <span className="w-9 h-9 rounded-full bg-teal/10 text-teal text-sm font-semibold flex items-center justify-center shrink-0">
                       {d.avatar_initials || d.name.split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -313,7 +313,7 @@ function TelehealthInner() {
                       Available
                     </span>
                     <button onClick={() => startCall(d)}
-                      className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-dark transition-colors">
+                      className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-dark transition-colors">
                       Call
                     </button>
                   </Card>
@@ -323,7 +323,7 @@ function TelehealthInner() {
           )}
 
           {!loading && doctors.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-8">No available doctors right now.</p>
+            <p className="text-sm text-gray-400 text-center py-4">No available doctors right now.</p>
           )}
         </>
       )}
