@@ -4,7 +4,7 @@ import { NowServingWidget } from "@/components/now-serving-widget"
 export default function Home() {
   return (
     <div className="flex-1 flex flex-col overflow-y-auto kiosk-scroll">
-      <div className="min-h-full flex flex-col items-center justify-center px-6 py-12 gap-12 relative">
+      <div className="min-h-full flex flex-col items-center justify-center px-8 pt-20 pb-12 gap-10 relative">
         <div className="text-center space-y-3">
           <h1 className="text-4xl font-bold tracking-tight text-primary">Medibot PX</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
