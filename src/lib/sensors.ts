@@ -13,7 +13,7 @@ export async function readVitals(): Promise<VitalsReading> {
   if (isRpi) {
     try {
       const mod = "i2c-bus"
-      const { default: i2c } = await import(mod)
+      const { default: i2c } = await import(/* webpackIgnore: true */ mod)
       const bus = i2c.openSync(parseInt(process.env.I2C_BUS || "1", 10))
 
       const weight = readWeightI2C(bus)
