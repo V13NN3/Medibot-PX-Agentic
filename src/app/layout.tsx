@@ -13,6 +13,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  interactiveWidget: "resizes-content",
 }
 
 const geistSans = Geist({
@@ -35,6 +36,10 @@ const QueueMonitor = dynamic(
 
 const NewPatientFill = dynamic(
   () => import("@/components/new-patient-fill").then((m) => ({ default: m.NewPatientFill })),
+)
+
+const FullscreenGate = dynamic(
+  () => import("@/components/fullscreen-gate").then((m) => ({ default: m.FullscreenGate })),
 )
 
 export const metadata: Metadata = {
@@ -78,6 +83,7 @@ export default function RootLayout({
               <VoiceButton compact />
               <QueueMonitor />
               <NewPatientFill />
+              <FullscreenGate />
             </VoiceEngineProvider>
           </MenuProvider>
         </KioskFit>
