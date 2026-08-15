@@ -7,9 +7,6 @@ import { useMenu } from "@/components/ui/menu-context"
 export function Menu() {
   const { isOpen, setOpen } = useMenu()
 
-  const navItems = apps.filter((a) => a.id !== "settings")
-  const settingsItem = apps.find((a) => a.id === "settings")
-
   return (
     <>
       <button
@@ -37,19 +34,19 @@ export function Menu() {
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-2xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {navItems.map((app) => (
+          <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
+            <div className="w-full max-w-4xl grid grid-cols-5 gap-4">
+              {apps.map((app) => (
                 <Link
                   key={app.id}
                   href={app.href}
                   onClick={() => setOpen(false)}
-                  className="flex flex-col items-center gap-2 rounded-2xl p-5
+                  className="flex flex-col items-center justify-center gap-2 rounded-2xl h-56 p-4
                              bg-gray-50 dark:bg-gray-800
                              hover:bg-gray-100 dark:hover:bg-gray-700
                              transition-colors cursor-pointer"
                 >
-                  <span className="text-4xl">{app.icon}</span>
+                  <span className="text-5xl">{app.icon}</span>
                   <span className="text-sm font-medium text-center text-gray-900 dark:text-gray-100">
                     {app.name}
                   </span>
@@ -60,29 +57,6 @@ export function Menu() {
               ))}
             </div>
           </div>
-
-          {settingsItem && (
-            <div className="shrink-0 border-t border-gray-200 dark:border-gray-700 p-4">
-              <div className="max-w-2xl mx-auto">
-                <Link
-                  href={settingsItem.href}
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 rounded-xl px-4 py-3
-                             bg-gray-50 dark:bg-gray-800
-                             hover:bg-gray-100 dark:hover:bg-gray-700
-                             transition-colors cursor-pointer"
-                >
-                  <span className="text-2xl">{settingsItem.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {settingsItem.name}
-                    </p>
-                    <p className="text-xs text-gray-500">{settingsItem.description}</p>
-                  </div>
-                </Link>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </>
