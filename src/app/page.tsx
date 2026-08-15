@@ -3,22 +3,24 @@ import { NowServingWidget } from "@/components/now-serving-widget"
 
 export default function Home() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 gap-12 relative overflow-hidden">
-      <div className="text-center space-y-3">
-        <h1 className="text-4xl font-bold tracking-tight text-primary">Medibot PX</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
-          Healthcare Assistant Robot &mdash; I&apos;m here to help you register,
-          check your vitals, and find your doctor.
-        </p>
+    <div className="flex-1 flex flex-col overflow-y-auto kiosk-scroll">
+      <div className="min-h-full flex flex-col items-center justify-center px-6 py-12 gap-12 relative">
+        <div className="text-center space-y-3">
+          <h1 className="text-4xl font-bold tracking-tight text-primary">Medibot PX</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
+            Healthcare Assistant Robot &mdash; I&apos;m here to help you register,
+            check your vitals, and find your doctor.
+          </p>
+        </div>
+
+        <VoiceButton />
+
+        <div className="absolute top-6 right-6">
+          <ModeSwitch />
+        </div>
+
+        <NowServingWidget />
       </div>
-
-      <VoiceButton />
-
-      <div className="absolute top-6 right-6">
-        <ModeSwitch />
-      </div>
-
-      <NowServingWidget />
     </div>
   )
 }
