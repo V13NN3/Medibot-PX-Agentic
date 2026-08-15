@@ -10,7 +10,22 @@ export const signalIsMain =
 
 const doctors = new Map() // doctorId -> ws
 const doctorNames = new Map() // doctorId -> name
+const doctorSince = new Map() // doctorId -> Date.now() at registration
 const calls = new Map() // callId -> { kiosk: ws, doctor: ws, doctorId }
+
+export function getOnlineDoctors() {
+  const list = []
+  for (const [doctorId, ws] of doctors) {
+    if (ws.readyState === WebSocket.OPEN) {
+      list.push({
+        doctorId,
+        name: doctorNames.get(doctorId) || doctorId,
+        since: doctorSince.get(doctorId) || null,
+      })
+    }
+  }
+  return list
+}
 
 function send(ws, msg) {
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -39,6 +54,7 @@ export function handleSignalConnection(ws) {
         }
         doctors.set(doctorId, ws)
         doctorNames.set(doctorId, name || doctorId)
+        doctorSince.set(doctorId, Date.now())
         ws.doctorId = doctorId
         console.log(`[telehealth-signal] doctor online: ${name || doctorId}`)
         send(ws, { type: "registered", doctorId, name: name || doctorId })
@@ -132,6 +148,7 @@ export function handleSignalConnection(ws) {
   ws.on("close", () => {
     if (ws.doctorId) {
       doctors.delete(ws.doctorId)
+      doctorSince.delete(ws.doctorId)
       console.log(`[telehealth-signal] doctor offline: ${doctorNames.get(ws.doctorId) || ws.doctorId}`)
     }
     if (ws.callId) {

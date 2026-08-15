@@ -8,6 +8,7 @@ interface Doctor {
   id: string
   name: string
   specialty: string
+  avatar_initials: string
   available: boolean
 }
 
@@ -28,6 +29,8 @@ const SIGNAL_URL = resolveSignalUrl()
 function TelehealthInner() {
   const searchParams = useSearchParams()
   const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [query, setQuery] = useState("")
+  const [loading, setLoading] = useState(true)
   const [target, setTarget] = useState<Doctor | null>(null)
   const [callState, setCallState] = useState<CallState>("idle")
   const [error, setError] = useState("")
@@ -41,19 +44,38 @@ function TelehealthInner() {
   const mutedRef = useRef(false)
   const camOnRef = useRef(true)
 
-  const fetchDoctors = useCallback(async () => {
+  const fetchDoctors = useCallback(async (q: string) => {
     try {
-      const res = await fetch("/api/doctors/search?q=")
-      const data = await res.json()
-      setDoctors((data.doctors || []).filter((d: Doctor) => d.available))
+      const [searchRes, presenceRes] = await Promise.all([
+        fetch(`/api/doctors/search?q=${encodeURIComponent(q)}`),
+        fetch("/api/telehealth/presence"),
+      ])
+      const searchData = await searchRes.json()
+      const presenceData = await presenceRes.json()
+      const online = new Set((presenceData.doctors || []).map((d: { doctorId: string }) => d.doctorId))
+      setDoctors((searchData.doctors || []).filter((d: Doctor) => d.available && online.has(d.id)))
     } catch {
-      /* ignore */
+      setDoctors([])
+    } finally {
+      setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchDoctors()
-  }, [fetchDoctors])
+    const search = searchParams.get("search")
+    fetchDoctors(search || "")
+  }, [searchParams, fetchDoctors])
+
+  useEffect(() => {
+    if (callState !== "idle") return
+    const id = setInterval(() => fetchDoctors(query), 20000)
+    const onFocus = () => fetchDoctors(query)
+    window.addEventListener("focus", onFocus)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener("focus", onFocus)
+    }
+  }, [callState, query, fetchDoctors])
 
   useEffect(() => {
     const search = searchParams.get("search")
@@ -294,31 +316,48 @@ function TelehealthInner() {
 
       {callState === "idle" && (
         <>
-          <p className="text-sm text-gray-500">Select a doctor to start a video call.</p>
-          <div className="flex flex-col gap-3">
-            {doctors.map((d) => (
-              <Card key={d.id} padding="md" className="flex items-center gap-4">
-                <span className="w-12 h-12 rounded-full bg-primary/10 text-primary text-base font-semibold flex items-center justify-center shrink-0">
-                  {d.name.split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">{d.name}</p>
-                  <p className="text-xs text-gray-500">{d.specialty}</p>
-                </div>
-                <span className="flex items-center gap-1.5 text-[11px] text-success shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-success" />
-                  Available
-                </span>
-                <button onClick={() => startCall(d)}
-                  className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary-dark transition-colors shrink-0">
-                  Call
-                </button>
-              </Card>
-            ))}
-            {doctors.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-8">No available doctors right now.</p>
-            )}
-          </div>
+          <p className="text-sm text-gray-500">Call an available doctor right now.</p>
+          <input type="search" value={query} placeholder="Search by name or specialty..."
+            onChange={(e) => { setQuery(e.target.value); setLoading(true); fetchDoctors(e.target.value) }}
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm shadow-sm" />
+
+          {loading && <p className="text-sm text-gray-400 text-center py-4">Loading...</p>}
+
+          {!loading && doctors.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-success uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-success" />
+                Available Now
+              </p>
+              <div className="flex flex-col gap-2">
+                {doctors.map((d) => (
+                  <Card key={d.id} padding="none" className="flex items-center gap-3 px-4 py-3">
+                    <span className="w-10 h-10 rounded-full bg-teal/10 text-teal text-sm font-semibold flex items-center justify-center shrink-0">
+                      {d.avatar_initials || d.name.split(" ").filter(Boolean).map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">{d.name}</p>
+                      <p className="text-xs text-gray-500">{d.specialty}</p>
+                    </div>
+                    <span className="text-xs text-success flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                      Available
+                    </span>
+                    <button onClick={() => startCall(d)}
+                      className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-dark transition-colors">
+                      Call
+                    </button>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!loading && doctors.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-8">
+              {query ? `No available doctors matching "${query}"` : "No available doctors right now."}
+            </p>
+          )}
         </>
       )}
     </div>
