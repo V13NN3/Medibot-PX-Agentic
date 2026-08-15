@@ -34,14 +34,6 @@ const MEASUREMENTS = [
   { key: "heart_rate", label: "Heart Rate", unit: "bpm", icon: "💓", fmt: (v: number) => `${v.toFixed(0)}` },
 ] as const
 
-const FIELD_MAP: Record<MeasurementKey, keyof Reading> = {
-  weight: "weight_kg",
-  height: "height_cm",
-  temperature: "temperature_c",
-  oxygen: "oxygen_saturation",
-  heart_rate: "heart_rate",
-}
-
 function formatHeightFtIn(cm: number): string {
   const totalIn = Math.round(cm / 2.54)
   const ft = Math.floor(totalIn / 12)
@@ -109,20 +101,39 @@ function VitalsInner() {
     tapsRef.current = [...tapsRef.current.filter((t) => now - t < 1500), now]
     if (tapsRef.current.length >= 3) {
       tapsRef.current = []
-      setShowManualInput((v) => !v)
+      const wasOpen = showManualInput
+      if (!wasOpen) {
+        const seeded: Partial<Record<MeasurementKey, string>> = {}
+        for (const k of Object.keys(manualOverrides) as MeasurementKey[]) {
+          if (manualOverrides[k] != null) seeded[k] = String(manualOverrides[k])
+        }
+        setManualInputs(seeded)
+      }
+      setShowManualInput(!wasOpen)
     }
   }
 
-  const submitManual = async (key: MeasurementKey) => {
-    const val = parseFloat(manualInputs[key] ?? "")
-    if (isNaN(val) || val <= 0) {
-      setError("Enter a valid value in " + (MEASUREMENTS.find((m) => m.key === key)?.unit ?? ""))
-      return
+  const submitAll = () => {
+    const next: Partial<Record<MeasurementKey, number>> = {}
+    for (const m of MEASUREMENTS) {
+      const raw = (manualInputs[m.key] ?? "").trim()
+      if (raw === "") continue
+      const val = parseFloat(raw)
+      if (isNaN(val) || val <= 0) {
+        setError(`Enter a valid ${m.label} in ${m.unit}`)
+        return
+      }
+      next[m.key] = val
     }
-    setManualOverrides((prev) => ({ ...prev, [key]: val }))
+    setManualOverrides(next)
     setError("")
-    await runStep(key, val, { instruct: false, calculateMs: 2500 })
-    setReading((prev) => (prev ? { ...prev, [FIELD_MAP[key]]: val } : prev))
+    setValues({})
+    setReading(null)
+    setHeightEst(null)
+    setMeasuring([])
+    setStepOverlay(null)
+    setStarting(false)
+    setShowManualInput(false)
   }
 
   const clearManual = () => {
@@ -343,14 +354,14 @@ function VitalsInner() {
                   placeholder={active ? `${manualOverrides[m.key]} ${m.unit}` : `(${m.unit})`}
                   className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm"
                 />
-                <button onClick={() => submitManual(m.key)}
-                  className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-dark">
-                  Submit
-                </button>
               </div>
             )
           })}
           {error && <p className="text-xs text-red-500">{error}</p>}
+          <button onClick={submitAll}
+            className="w-full py-2 rounded-lg bg-primary text-white text-sm font-bold hover:bg-primary-dark">
+            Submit All
+          </button>
         </div>
       )}
 
