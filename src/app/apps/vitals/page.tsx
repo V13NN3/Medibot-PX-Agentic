@@ -1,7 +1,7 @@
 "use client"
 
 import { useSearchParams, useRouter } from "next/navigation"
-import { useState, useEffect, Suspense, useCallback } from "react"
+import { useState, useEffect, Suspense, useCallback, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { CountdownOverlay } from "@/components/countdown-overlay"
 import { MeasureOverlay } from "@/components/measure-overlay"
@@ -34,6 +34,14 @@ const MEASUREMENTS = [
   { key: "heart_rate", label: "Heart Rate", unit: "bpm", icon: "💓", fmt: (v: number) => `${v.toFixed(0)}` },
 ] as const
 
+const FIELD_MAP: Record<MeasurementKey, keyof Reading> = {
+  weight: "weight_kg",
+  height: "height_cm",
+  temperature: "temperature_c",
+  oxygen: "oxygen_saturation",
+  heart_rate: "heart_rate",
+}
+
 function formatHeightFtIn(cm: number): string {
   const totalIn = Math.round(cm / 2.54)
   const ft = Math.floor(totalIn / 12)
@@ -50,7 +58,11 @@ function VitalsInner() {
   const [values, setValues] = useState<Partial<Record<MeasurementKey, number>>>({})
   const [measuring, setMeasuring] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
-  const [stepOverlay, setStepOverlay] = useState<{ key: "weight" | "temperature" | "oxygen" | "heart_rate"; calculating: boolean } | null>(null)
+  const [stepOverlay, setStepOverlay] = useState<{ key: MeasurementKey; calculating: boolean } | null>(null)
+  const [showManualInput, setShowManualInput] = useState(false)
+  const [manualInputs, setManualInputs] = useState<Partial<Record<MeasurementKey, string>>>({})
+  const [manualOverrides, setManualOverrides] = useState<Partial<Record<MeasurementKey, number>>>({})
+  const tapsRef = useRef<number[]>([])
   const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
   const [countdownNum, setCountdownNum] = useState(3)
   const [heightEst, setHeightEst] = useState<{ cm: number; img: string } | null>(null)
@@ -73,16 +85,50 @@ function VitalsInner() {
     setMeasuring([])
   }, [])
 
-  const runStep = async (key: "weight" | "temperature" | "oxygen" | "heart_rate", sensorValue: number) => {
+  const runStep = async (
+    key: MeasurementKey,
+    value: number,
+    opts?: { instruct?: boolean; calculateMs?: number },
+  ) => {
     setMeasuring([key])
-    setStepOverlay({ key, calculating: false })
-    speak(STEP_NOTES[key])
-    await new Promise((r) => setTimeout(r, 2500))
+    const note = (STEP_NOTES as Partial<Record<MeasurementKey, string>>)[key]
+    if (opts?.instruct !== false && note) {
+      setStepOverlay({ key, calculating: false })
+      speak(note)
+      await new Promise((r) => setTimeout(r, 2500))
+    }
     setStepOverlay({ key, calculating: true })
-    await new Promise((r) => setTimeout(r, 1200))
-    setValues((prev) => ({ ...prev, [key]: sensorValue }))
+    await new Promise((r) => setTimeout(r, opts?.calculateMs ?? 1200))
+    setValues((prev) => ({ ...prev, [key]: value }))
     setMeasuring([])
     setStepOverlay(null)
+  }
+
+  const onTripleTap = () => {
+    const now = Date.now()
+    tapsRef.current = [...tapsRef.current.filter((t) => now - t < 1500), now]
+    if (tapsRef.current.length >= 3) {
+      tapsRef.current = []
+      setShowManualInput((v) => !v)
+    }
+  }
+
+  const submitManual = async (key: MeasurementKey) => {
+    const val = parseFloat(manualInputs[key] ?? "")
+    if (isNaN(val) || val <= 0) {
+      setError("Enter a valid value in " + (MEASUREMENTS.find((m) => m.key === key)?.unit ?? ""))
+      return
+    }
+    setManualOverrides((prev) => ({ ...prev, [key]: val }))
+    setError("")
+    await runStep(key, val, { instruct: false, calculateMs: 2500 })
+    setReading((prev) => (prev ? { ...prev, [FIELD_MAP[key]]: val } : prev))
+  }
+
+  const clearManual = () => {
+    setManualOverrides({})
+    setManualInputs({})
+    setError("")
   }
 
   const startMeasurement = async () => {
@@ -105,20 +151,27 @@ function VitalsInner() {
       return
     }
 
-    await runStep("weight", sensor.weight_kg)
+    const weightSource = manualOverrides.weight ?? sensor.weight_kg
+    await runStep("weight", weightSource)
 
-    const est = await measureHeight()
+    const heightOverride = manualOverrides.height
+    let est: { cm: number; img: string } | null = null
+    if (heightOverride != null) {
+      await runStep("height", heightOverride, { instruct: false })
+    } else {
+      est = await measureHeight()
+    }
 
-    await runStep("temperature", sensor.temperature_c)
-    await runStep("oxygen", sensor.oxygen_saturation)
-    await runStep("heart_rate", sensor.heart_rate)
+    await runStep("temperature", manualOverrides.temperature ?? sensor.temperature_c)
+    await runStep("oxygen", manualOverrides.oxygen ?? sensor.oxygen_saturation)
+    await runStep("heart_rate", manualOverrides.heart_rate ?? sensor.heart_rate)
 
     setReading({
-      weight_kg: sensor.weight_kg,
-      height_cm: est?.cm ?? sensor.height_cm ?? 0,
-      temperature_c: sensor.temperature_c,
-      oxygen_saturation: sensor.oxygen_saturation,
-      heart_rate: sensor.heart_rate,
+      weight_kg: weightSource,
+      height_cm: heightOverride ?? est?.cm ?? sensor.height_cm ?? 0,
+      temperature_c: manualOverrides.temperature ?? sensor.temperature_c,
+      oxygen_saturation: manualOverrides.oxygen ?? sensor.oxygen_saturation,
+      heart_rate: manualOverrides.heart_rate ?? sensor.heart_rate,
       _source: sensor._source,
       image_base64: est?.img,
     })
@@ -251,12 +304,55 @@ function VitalsInner() {
   return (
     <div className="flex-1 flex flex-col p-4 md:p-6 gap-4 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden overflow-hidden">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground">Vitals Check</h2>
+        <h2 className="text-2xl font-semibold text-foreground select-none cursor-default" onClick={onTripleTap}>
+          Vitals Check
+        </h2>
         <p className="text-sm text-gray-500">
           Measure weight, height &amp; temperature
           {patientId && <span className="text-gray-400"> · Patient {patientId.slice(0, 8)}</span>}
         </p>
       </div>
+
+      {Object.keys(manualOverrides).length > 0 && !showManualInput && (
+        <p className="text-xs text-amber-700">
+          Manual overrides: {MEASUREMENTS.filter((m) => manualOverrides[m.key] != null).map((m) => m.label).join(", ")}
+        </p>
+      )}
+
+      {showManualInput && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-amber-900">Manual vitals input (test)</p>
+            <button onClick={clearManual}
+              className="px-2 py-1 rounded-md bg-gray-200 text-gray-700 text-[11px] font-bold hover:bg-gray-300">
+              Clear All
+            </button>
+          </div>
+          {MEASUREMENTS.map((m) => {
+            const active = manualOverrides[m.key] != null
+            return (
+              <div key={m.key} className="flex items-center gap-2">
+                <span className="w-6 text-center">{m.icon}</span>
+                <span className="w-20 text-xs font-semibold text-amber-900">{m.label}</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={manualInputs[m.key] ?? ""}
+                  onChange={(e) => setManualInputs((prev) => ({ ...prev, [m.key]: e.target.value }))}
+                  placeholder={active ? `${manualOverrides[m.key]} ${m.unit}` : `(${m.unit})`}
+                  className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm"
+                />
+                <button onClick={() => submitManual(m.key)}
+                  className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-dark">
+                  Submit
+                </button>
+              </div>
+            )
+          })}
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         {MEASUREMENTS.map((m) => {
@@ -366,7 +462,7 @@ function VitalsInner() {
         <MeasureOverlay
           icon={MEASUREMENTS.find((m) => m.key === stepOverlay.key)?.icon ?? ""}
           label={MEASUREMENTS.find((m) => m.key === stepOverlay.key)?.label ?? ""}
-          note={STEP_NOTES[stepOverlay.key]}
+          note={(STEP_NOTES as Partial<Record<MeasurementKey, string>>)[stepOverlay.key] ?? ""}
           calculating={stepOverlay.calculating}
         />
       )}
