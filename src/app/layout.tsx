@@ -50,13 +50,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-dvh antialiased`}
     >
-      <body className="h-full flex flex-col bg-app-bg text-foreground overflow-hidden" suppressHydrationWarning>
+      <body className="h-dvh flex flex-col bg-app-bg text-foreground overflow-hidden" suppressHydrationWarning>
         <KioskFit>
           <MenuProvider>
             <VoiceEngineProvider>
-              <header className="h-10 bg-status-bar flex items-center justify-between px-4 text-status-text text-xs font-mono shrink-0">
+              <header className="h-12 bg-status-bar flex items-center justify-between px-4 text-status-text text-xs font-mono shrink-0 touch-manipulation">
                 <div className="flex items-center gap-3">
                   <Link
                     href="/"

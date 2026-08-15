@@ -12,7 +12,7 @@ export function Menu() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-xs font-semibold uppercase tracking-wider text-white/80 hover:text-white transition-colors cursor-pointer"
+        className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/80 hover:text-white transition-colors cursor-pointer touch-manipulation"
       >
         Menu
       </button>
@@ -28,7 +28,7 @@ export function Menu() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="text-xs font-semibold uppercase tracking-wider text-white/80 hover:text-white transition-colors cursor-pointer"
+              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/80 hover:text-white transition-colors cursor-pointer touch-manipulation"
             >
               Close
             </button>
