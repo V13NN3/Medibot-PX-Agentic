@@ -51,6 +51,7 @@ function VitalsInner() {
   const [measuring, setMeasuring] = useState<string[]>([])
   const [starting, setStarting] = useState(false)
   const [stepOverlay, setStepOverlay] = useState<{ key: MeasurementKey; calculating: boolean } | null>(null)
+  const [globalCountdown, setGlobalCountdown] = useState(false)
   const [showManualInput, setShowManualInput] = useState(false)
   const [manualInputs, setManualInputs] = useState<Partial<Record<MeasurementKey, string>>>({})
   const [manualOverrides, setManualOverrides] = useState<Partial<Record<MeasurementKey, number>>>({})
@@ -77,6 +78,18 @@ function VitalsInner() {
     setMeasuring([])
   }, [])
 
+  const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+  const runCountdown = async () => {
+    setGlobalCountdown(true)
+    speak("Get ready. Three, two, one.")
+    for (let n = 3; n >= 1; n--) {
+      setCountdownNum(n)
+      await pause(1000)
+    }
+    setGlobalCountdown(false)
+  }
+
   const runStep = async (
     key: MeasurementKey,
     value: number,
@@ -87,10 +100,11 @@ function VitalsInner() {
     if (opts?.instruct !== false && note) {
       setStepOverlay({ key, calculating: false })
       speak(note)
-      await new Promise((r) => setTimeout(r, 2500))
+      await pause(2500)
     }
+    await runCountdown()
     setStepOverlay({ key, calculating: true })
-    await new Promise((r) => setTimeout(r, opts?.calculateMs ?? 1200))
+    await pause(opts?.calculateMs ?? 1200)
     setValues((prev) => ({ ...prev, [key]: value }))
     setMeasuring([])
     setStepOverlay(null)
@@ -164,6 +178,7 @@ function VitalsInner() {
 
     const weightSource = manualOverrides.weight ?? sensor.weight_kg
     await runStep("weight", weightSource)
+    await pause(2000)
 
     const heightOverride = manualOverrides.height
     let est: { cm: number; img: string } | null = null
@@ -172,9 +187,12 @@ function VitalsInner() {
     } else {
       est = await measureHeight()
     }
+    await pause(2000)
 
     await runStep("temperature", manualOverrides.temperature ?? sensor.temperature_c)
+    await pause(2000)
     await runStep("oxygen", manualOverrides.oxygen ?? sensor.oxygen_saturation)
+    await pause(2000)
     await runStep("heart_rate", manualOverrides.heart_rate ?? sensor.heart_rate)
 
     setReading({
@@ -324,12 +342,6 @@ function VitalsInner() {
         </p>
       </div>
 
-      {Object.keys(manualOverrides).length > 0 && !showManualInput && (
-        <p className="text-xs text-amber-700">
-          Manual overrides: {MEASUREMENTS.filter((m) => manualOverrides[m.key] != null).map((m) => m.label).join(", ")}
-        </p>
-      )}
-
       {showManualInput && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 flex flex-col gap-2">
           <div className="flex items-center justify-between">
@@ -467,8 +479,6 @@ function VitalsInner() {
         </div>
       )}
 
-      <CountdownOverlay number={countdownNum} show={heightPhase === "countdown"} />
-
       {stepOverlay && (
         <MeasureOverlay
           icon={MEASUREMENTS.find((m) => m.key === stepOverlay.key)?.icon ?? ""}
@@ -477,6 +487,8 @@ function VitalsInner() {
           calculating={stepOverlay.calculating}
         />
       )}
+
+      <CountdownOverlay number={countdownNum} show={heightPhase === "countdown" || globalCountdown} />
     </div>
   )
 }
