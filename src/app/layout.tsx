@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { Geist, Geist_Mono } from "next/font/google"
 import { Menu } from "@/components/ui/menu"
 import { MenuProvider } from "@/components/ui/menu-context"
 import { KioskFit } from "@/components/kiosk-fit"
@@ -14,16 +13,6 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
 }
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-})
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-})
 
 const VoiceButton = dynamic(
   () => import("@/components/voice/voice-button").then((m) => ({ default: m.VoiceButton })),
@@ -50,7 +39,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-dvh antialiased`}
+      className="h-dvh antialiased"
     >
       <body className="h-dvh flex flex-col bg-app-bg text-foreground overflow-hidden" suppressHydrationWarning>
         <KioskFit>
