@@ -1,6 +1,5 @@
 "use client"
 
-import { useSearchParams } from "next/navigation"
 import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { Card } from "@/components/ui/card"
 
@@ -27,9 +26,7 @@ function resolveSignalUrl() {
 const SIGNAL_URL = resolveSignalUrl()
 
 function TelehealthInner() {
-  const searchParams = useSearchParams()
   const [doctors, setDoctors] = useState<Doctor[]>([])
-  const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [target, setTarget] = useState<Doctor | null>(null)
   const [callState, setCallState] = useState<CallState>("idle")
@@ -44,16 +41,11 @@ function TelehealthInner() {
   const mutedRef = useRef(false)
   const camOnRef = useRef(true)
 
-  const fetchDoctors = useCallback(async (q: string) => {
+  const fetchDoctors = useCallback(async () => {
     try {
-      const [searchRes, presenceRes] = await Promise.all([
-        fetch(`/api/doctors/search?q=${encodeURIComponent(q)}`),
-        fetch("/api/telehealth/presence"),
-      ])
-      const searchData = await searchRes.json()
-      const presenceData = await presenceRes.json()
-      const online = new Set((presenceData.doctors || []).map((d: { doctorId: string }) => d.doctorId))
-      setDoctors((searchData.doctors || []).filter((d: Doctor) => d.available && online.has(d.id)))
+      const res = await fetch("/api/doctors/search?q=")
+      const data = await res.json()
+      setDoctors((data.doctors || []).filter((d: Doctor) => d.available))
     } catch {
       setDoctors([])
     } finally {
@@ -62,28 +54,8 @@ function TelehealthInner() {
   }, [])
 
   useEffect(() => {
-    const search = searchParams.get("search")
-    fetchDoctors(search || "")
-  }, [searchParams, fetchDoctors])
-
-  useEffect(() => {
-    if (callState !== "idle") return
-    const id = setInterval(() => fetchDoctors(query), 20000)
-    const onFocus = () => fetchDoctors(query)
-    window.addEventListener("focus", onFocus)
-    return () => {
-      clearInterval(id)
-      window.removeEventListener("focus", onFocus)
-    }
-  }, [callState, query, fetchDoctors])
-
-  useEffect(() => {
-    const search = searchParams.get("search")
-    if (search) {
-      const found = doctors.find((d) => d.name.toLowerCase().includes(search.toLowerCase()))
-      if (found) setTarget(found)
-    }
-  }, [searchParams, doctors])
+    fetchDoctors()
+  }, [fetchDoctors])
 
   const cleanup = useCallback(() => {
     pcRef.current?.close()
@@ -317,9 +289,6 @@ function TelehealthInner() {
       {callState === "idle" && (
         <>
           <p className="text-sm text-gray-500">Call an available doctor right now.</p>
-          <input type="search" value={query} placeholder="Search by name or specialty..."
-            onChange={(e) => { setQuery(e.target.value); setLoading(true); fetchDoctors(e.target.value) }}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm shadow-sm" />
 
           {loading && <p className="text-sm text-gray-400 text-center py-4">Loading...</p>}
 
@@ -354,9 +323,7 @@ function TelehealthInner() {
           )}
 
           {!loading && doctors.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-8">
-              {query ? `No available doctors matching "${query}"` : "No available doctors right now."}
-            </p>
+            <p className="text-sm text-gray-400 text-center py-8">No available doctors right now.</p>
           )}
         </>
       )}
