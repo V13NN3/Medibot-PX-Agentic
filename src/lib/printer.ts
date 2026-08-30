@@ -38,16 +38,18 @@ interface PrinterTarget {
   kind: "usb" | "serial"
 }
 
-function resolvePrinterTarget(): PrinterTarget | null {
-  const fs = require("fs") as typeof import("fs")
+async function resolvePrinterTarget(): Promise<PrinterTarget | null> {
+  const fs = await import("fs")
   const candidates = process.env.PRINTER_DEVICE
     ? [process.env.PRINTER_DEVICE]
     : ["/dev/usb/lp0", "/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyACM0"]
   for (const device of candidates) {
     if (fs.existsSync(device)) {
+      console.log(`[printer] found device: ${device}`)
       return { device, kind: device.startsWith("/dev/tty") ? "serial" : "usb" }
     }
   }
+  console.warn("[printer] no device found among:", candidates.join(", "))
   return null
 }
 
@@ -58,7 +60,7 @@ function configureSerial(device: string): void {
 }
 
 async function writePrintBytes(buf: Buffer): Promise<void> {
-  const target = resolvePrinterTarget()
+  const target = await resolvePrinterTarget()
   if (!target) {
     throw new Error("No printer device found. Check /dev/usb/lp0, /dev/ttyUSB0, or set PRINTER_DEVICE.")
   }
