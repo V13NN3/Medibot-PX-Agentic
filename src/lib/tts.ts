@@ -9,27 +9,41 @@ export async function speak(text: string): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     })
-    if (!res.ok) return
-    const data = await res.json()
-    if (!data.audioContent) return
+    if (res.ok) {
+      const data = await res.json()
+      if (data.audioContent) {
+        const binary = atob(data.audioContent)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
 
-    const binary = atob(data.audioContent)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        if (!sharedCtx) sharedCtx = new AudioContext()
+        const ctx = sharedCtx
+        if (ctx.state === "suspended") await ctx.resume()
 
-    if (!sharedCtx) sharedCtx = new AudioContext()
-    const ctx = sharedCtx
-    if (ctx.state === "suspended") await ctx.resume()
-
-    const audioBuf = await ctx.decodeAudioData(bytes.buffer.slice(0))
-    const source = ctx.createBufferSource()
-    source.buffer = audioBuf
-    source.connect(ctx.destination)
-    source.start()
-    await new Promise<void>((resolve) => {
-      source.onended = () => resolve()
-    })
+        const audioBuf = await ctx.decodeAudioData(bytes.buffer.slice(0))
+        const source = ctx.createBufferSource()
+        source.buffer = audioBuf
+        source.connect(ctx.destination)
+        source.start()
+        await new Promise<void>((resolve) => {
+          source.onended = () => resolve()
+        })
+        return
+      }
+    }
   } catch {
-    /* ignore TTS errors */
+    /* Google TTS failed, fall back to browser speechSynthesis */
+  }
+
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = "en-US"
+    utterance.rate = 1.1
+    window.speechSynthesis.speak(utterance)
+    await new Promise<void>((resolve) => {
+      utterance.onend = () => resolve()
+      utterance.onerror = () => resolve()
+      setTimeout(() => resolve(), 8000)
+    })
   }
 }

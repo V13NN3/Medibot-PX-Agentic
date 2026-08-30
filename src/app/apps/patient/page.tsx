@@ -466,7 +466,7 @@ function PatientInner() {
           <p className="text-xs text-gray-500">Register a new patient</p>
         </div>
         <Card padding="md" className="flex flex-col gap-2 py-3">
-          {facePhase !== "idle" && (
+          {(facePhase === "instruct" || facePhase === "countdown") && (
             <div className="rounded-xl overflow-hidden bg-black border border-gray-200">
               {piCamera ? (
                 <img ref={faceImgRef} src="/api/camera/stream" alt="Pi camera" className="w-full max-h-48 object-cover" />
