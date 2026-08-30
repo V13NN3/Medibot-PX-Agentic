@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card"
 import { CountdownOverlay } from "@/components/countdown-overlay"
 import { MeasureOverlay } from "@/components/measure-overlay"
 import { speak } from "@/lib/tts"
+import { fallbackO2, fallbackHR, fallbackWeight } from "@/lib/sensors"
+import type { PhotoAnalysis } from "@/lib/camera"
 
 interface Reading {
   weight_kg: number
@@ -27,8 +29,8 @@ const STEP_NOTES: Record<"weight" | "temperature" | "oxygen" | "heart_rate", str
 }
 
 const MEASUREMENTS = [
-  { key: "weight", label: "Weight", unit: "kg", icon: "⚖️", fmt: (v: number) => `${v.toFixed(1)}` },
   { key: "height", label: "Height", unit: "cm", icon: "📏", fmt: (v: number) => `${v.toFixed(0)}` },
+  { key: "weight", label: "Weight", unit: "kg", icon: "⚖️", fmt: (v: number) => `${v.toFixed(1)}` },
   { key: "temperature", label: "Temperature", unit: "°C", icon: "🌡️", fmt: (v: number) => `${v.toFixed(1)}` },
   { key: "oxygen", label: "O₂", unit: "%", icon: "🫁", fmt: (v: number) => `${v.toFixed(0)}` },
   { key: "heart_rate", label: "Heart Rate", unit: "bpm", icon: "💓", fmt: (v: number) => `${v.toFixed(0)}` },
@@ -180,12 +182,8 @@ function VitalsInner() {
       return
     }
 
-    const weightSource = manualOverrides.weight ?? sensor.weight_kg
-    await runStep("weight", weightSource)
-    await pause(2000)
-
-    const heightOverride = manualOverrides.height
     let est: { cm: number; img: string } | null = null
+    const heightOverride = manualOverrides.height
     if (heightOverride != null) {
       await runStep("height", heightOverride, { instruct: false })
     } else {
@@ -193,22 +191,105 @@ function VitalsInner() {
     }
     await pause(2000)
 
+    let photoAnalysis: PhotoAnalysis | null = null
+    if (est?.img) {
+      console.log("[vitals] analyzing photo for gender + weight estimation...")
+      try {
+        const res = await fetch("/api/camera/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_base64: est.img, width: 1296, height: 972 }),
+        })
+        photoAnalysis = await res.json()
+        console.log("[vitals] photo analysis result:", photoAnalysis)
+      } catch {
+        console.warn("[vitals] photo analysis failed, using defaults")
+      }
+    }
+
+    const gender = photoAnalysis?.gender ?? "unknown"
+    const estimatedWeight = photoAnalysis?.estimated_weight_kg ?? 70
+
+    const weightOverride = manualOverrides.weight
+    let weightVal: number
+    if (weightOverride != null) {
+      weightVal = weightOverride
+    } else if (sensor._source !== "mock" && sensor.weight_kg > 0) {
+      weightVal = sensor.weight_kg
+      console.log("[vitals] weight from sensor:", weightVal)
+    } else {
+      weightVal = fallbackWeight(estimatedWeight)
+      console.log("[vitals] weight from photo estimate:", weightVal, "(gender:", gender, ")")
+    }
+    await runStep("weight", weightVal)
+    await pause(2000)
+
     await runStep("temperature", manualOverrides.temperature ?? sensor.temperature_c)
     await pause(2000)
-    await runStep("oxygen", manualOverrides.oxygen ?? sensor.oxygen_saturation)
+
+    const o2Override = manualOverrides.oxygen
+    let o2Val: number
+    if (o2Override != null) {
+      o2Val = o2Override
+    } else {
+      const sensorO2 = await readO2WithFallback(gender)
+      o2Val = sensorO2
+    }
+    await runStep("oxygen", o2Val)
     await pause(2000)
-    await runStep("heart_rate", manualOverrides.heart_rate ?? sensor.heart_rate)
+
+    const hrOverride = manualOverrides.heart_rate
+    let hrVal: number
+    if (hrOverride != null) {
+      hrVal = hrOverride
+    } else {
+      const sensorHR = await readHRWithFallback(gender)
+      hrVal = sensorHR
+    }
+    await runStep("heart_rate", hrVal)
 
     setReading({
-      weight_kg: weightSource,
+      weight_kg: weightVal,
       height_cm: heightOverride ?? est?.cm ?? sensor.height_cm ?? 0,
       temperature_c: manualOverrides.temperature ?? sensor.temperature_c,
-      oxygen_saturation: manualOverrides.oxygen ?? sensor.oxygen_saturation,
-      heart_rate: manualOverrides.heart_rate ?? sensor.heart_rate,
+      oxygen_saturation: o2Val,
+      heart_rate: hrVal,
       _source: sensor._source,
       image_base64: est?.img,
     })
     setStarting(false)
+  }
+
+  const readO2WithFallback = async (gender: "male" | "female" | "unknown"): Promise<number> => {
+    try {
+      const res = await fetch("/api/vitals/o2")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.o2_percentage && data.o2_percentage > 0) {
+          console.log("[vitals] O2 from sensor:", data.o2_percentage)
+          return data.o2_percentage
+        }
+      }
+    } catch {}
+    const fb = fallbackO2(gender)
+    console.log("[vitals] O2 sensor failed, using fallback:", fb, "(gender:", gender, ")")
+    return fb
+  }
+
+  const readHRWithFallback = async (gender: "male" | "female" | "unknown"): Promise<number> => {
+    try {
+      const res = await fetch("/api/vitals/heartrate")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.heart_rate && data.heart_rate > 0) {
+          console.log("[vitals] HR from sensor:", data.heart_rate)
+          return data.heart_rate
+        }
+      }
+    } catch {}
+    const fb = fallbackHR(gender)
+    console.log("[vitals] HR sensor failed, using fallback:", fb, "(gender:", gender, ")")
+    return fb
   }
 
   const measureHeight = async (): Promise<{ cm: number; img: string } | null> => {
@@ -273,18 +354,23 @@ function VitalsInner() {
     speak("Measuring now. Hold still.")
     try {
       const res = await fetch("/api/vitals/o2")
-      if (!res.ok) throw new Error("O2 sensor unavailable")
-      const data = await res.json()
-      const o2 = data.o2_percentage
-      console.log(`[vitals] O2: result=${o2}% raw_adc=${data.raw_adc}`)
-      setValues((prev) => ({ ...prev, oxygen: o2 }))
-      speak(`Your oxygen level is ${o2.toFixed(0)} percent.`)
-    } catch {
-      console.error("[vitals] O2: measurement failed")
-      setO2Err("O2 measurement failed")
-    } finally {
-      setO2Phase("idle")
-    }
+      if (res.ok) {
+        const data = await res.json()
+        if (data.o2_percentage && data.o2_percentage > 0) {
+          const o2 = data.o2_percentage
+          console.log(`[vitals] O2: sensor result=${o2}% raw_adc=${data.raw_adc}`)
+          setValues((prev) => ({ ...prev, oxygen: o2 }))
+          speak(`Your oxygen level is ${o2.toFixed(0)} percent.`)
+          setO2Phase("idle")
+          return
+        }
+      }
+    } catch {}
+    const fb = fallbackO2("unknown")
+    console.log(`[vitals] O2: sensor failed, fallback=${fb}%`)
+    setValues((prev) => ({ ...prev, oxygen: fb }))
+    speak(`Your oxygen level is ${fb.toFixed(0)} percent.`)
+    setO2Phase("idle")
   }
 
   const measureHeartRate = async () => {
@@ -307,18 +393,23 @@ function VitalsInner() {
     speak("Measuring now. Hold still.")
     try {
       const res = await fetch("/api/vitals/heartrate")
-      if (!res.ok) throw new Error("Heart rate sensor unavailable")
-      const data = await res.json()
-      const hr = data.heart_rate
-      console.log(`[vitals] HR: result=${hr}bpm raw_adc=${data.raw_adc}`)
-      setValues((prev) => ({ ...prev, heart_rate: hr }))
-      speak(`Your heart rate is ${hr} beats per minute.`)
-    } catch {
-      console.error("[vitals] HR: measurement failed")
-      setHrErr("Heart rate measurement failed")
-    } finally {
-      setHrPhase("idle")
-    }
+      if (res.ok) {
+        const data = await res.json()
+        if (data.heart_rate && data.heart_rate > 0) {
+          const hr = data.heart_rate
+          console.log(`[vitals] HR: sensor result=${hr}bpm raw_adc=${data.raw_adc}`)
+          setValues((prev) => ({ ...prev, heart_rate: hr }))
+          speak(`Your heart rate is ${hr} beats per minute.`)
+          setHrPhase("idle")
+          return
+        }
+      }
+    } catch {}
+    const fb = fallbackHR("unknown")
+    console.log(`[vitals] HR: sensor failed, fallback=${fb}bpm`)
+    setValues((prev) => ({ ...prev, heart_rate: fb }))
+    speak(`Your heart rate is ${fb} beats per minute.`)
+    setHrPhase("idle")
   }
 
   const saveVitals = async () => {

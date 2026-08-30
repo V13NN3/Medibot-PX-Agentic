@@ -163,3 +163,84 @@ export async function estimateHeight(): Promise<HeightEstimate> {
     return { height_cm: 172, confidence: 0, _source: "mock" }
   }
 }
+
+export interface PhotoAnalysis {
+  gender: "male" | "female" | "unknown"
+  estimated_weight_kg: number
+}
+
+export async function analyzePhoto(imageBase64: string, width: number, height: number): Promise<PhotoAnalysis> {
+  const apiKey = process.env.GROK_VISION_API_KEY || process.env.GROK_VOICE_API_KEY || ""
+  if (!apiKey) {
+    console.warn("[camera] no API key for analyzePhoto, returning defaults")
+    return { gender: "unknown", estimated_weight_kg: 70 }
+  }
+
+  const dataUrl = `data:image/jpeg;base64,${imageBase64}`
+  const models = visionModelCandidates()
+
+  for (const model of models) {
+    try {
+      const response = await fetch(XAI_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Analyze this full-body photo of a person standing in front of a camera. The image is ${width}x${height} pixels.
+
+1. Estimate the person's gender (male or female) based on body shape, build, and appearance.
+2. Estimate the person's weight in kilograms based on their body proportions and build.
+
+Respond with valid JSON only, in exactly this shape:
+{"gender": "male" or "female", "estimated_weight_kg": <number 30-200>}
+
+If you cannot determine gender, use "unknown" and estimate weight as 70.`,
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: dataUrl },
+                },
+              ],
+            },
+          ],
+          max_tokens: 200,
+          temperature: 0.2,
+        }),
+      })
+
+      if (!response.ok) continue
+
+      const data = await response.json()
+      const content = data.choices?.[0]?.message?.content || ""
+
+      let parsed: { gender?: string; estimated_weight_kg?: number } = {}
+      try {
+        parsed = JSON.parse(content)
+      } catch {
+        continue
+      }
+
+      const gender = parsed.gender === "male" || parsed.gender === "female" ? parsed.gender : "unknown"
+      const weight = Number.isFinite(Number(parsed.estimated_weight_kg))
+        ? Math.min(200, Math.max(30, Number(parsed.estimated_weight_kg)))
+        : 70
+
+      console.log(`[camera] photo analysis: gender=${gender} weight=${weight}kg (model=${model})`)
+      return { gender, estimated_weight_kg: weight }
+    } catch (err) {
+      console.warn(`[camera] analyzePhoto model ${model} failed:`, err)
+    }
+  }
+
+  console.warn("[camera] analyzePhoto: all models failed, returning defaults")
+  return { gender: "unknown", estimated_weight_kg: 70 }
+}
