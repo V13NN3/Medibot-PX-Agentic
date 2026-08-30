@@ -344,6 +344,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../src/app/api/vitals/heartrate/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/vitals/heartrate">> = Specific
+  const handler = {} as typeof import("../../src/app/api/vitals/heartrate/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../src/app/api/vitals/height/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/vitals/height">> = Specific

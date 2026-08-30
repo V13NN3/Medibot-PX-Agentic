@@ -257,6 +257,16 @@ export const toolHandlers: Record<string, ToolHandler> = {
       return JSON.stringify(reading)
     }
 
+    if (measurement === "heart_rate") {
+      const hrRes = (await apiGet("/api/vitals/heartrate")) as { heart_rate?: number; raw_adc?: number }
+      const readRes = (await apiGet("/api/vitals/read")) as Record<string, unknown>
+      const reading = { ...readRes, heart_rate: hrRes.heart_rate ?? readRes.heart_rate }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("vitals-reading", { detail: { reading } }))
+      }
+      return JSON.stringify(reading)
+    }
+
     const data = await apiGet("/api/vitals/read")
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("vitals-reading", { detail: { reading: data } }))
