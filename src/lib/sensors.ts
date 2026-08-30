@@ -37,9 +37,9 @@ export async function readVitals(): Promise<VitalsReading> {
   }
 
   return {
-    weight_kg: 72.5,
-    height_cm: 172,
-    temperature_c: 36.7,
+    weight_kg: 66,
+    height_cm: 163,
+    temperature_c: 36.6,
     oxygen_saturation: 98.0,
     heart_rate: 72,
     _source: "mock",

@@ -46,18 +46,25 @@ export async function unlockAudio(): Promise<void> {
   console.log("[audio] unlockAudio done, ctx.state=" + ctx.state)
 }
 
+export async function requestMic(): Promise<MediaStream> {
+  return navigator.mediaDevices.getUserMedia({ audio: true })
+}
+
 export class PcmCapture {
   private source: MediaStreamAudioSourceNode | null = null
   private processor: ScriptProcessorNode | null = null
   private stream: MediaStream | null = null
 
-  async start(onChunk: (base64: string, float32: Float32Array) => void): Promise<void> {
+  async start(
+    onChunk: (base64: string, float32: Float32Array) => void,
+    stream?: MediaStream,
+  ): Promise<void> {
     const ctx = getAudioContext()
     console.log("[audio] PcmCapture.start, ctx.state=" + ctx.state)
     if (ctx.state === "suspended") {
       await ctx.resume()
     }
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    this.stream = stream ?? (await requestMic())
     this.source = ctx.createMediaStreamSource(this.stream)
     this.processor = ctx.createScriptProcessor(4096, 1, 1)
 

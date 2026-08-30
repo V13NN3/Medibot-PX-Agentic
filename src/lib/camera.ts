@@ -124,6 +124,32 @@ async function askVision(imageBase64: string, width: number, height: number, mod
   return { height_cm: clamped, confidence }
 }
 
+export async function estimateHeightFromImage(
+  imageBase64: string,
+  width: number,
+  height: number,
+): Promise<HeightEstimate> {
+  let result: { height_cm: number; confidence: number } | null = null
+  let lastErr: unknown = null
+  for (const model of visionModelCandidates()) {
+    try {
+      result = await askVision(imageBase64, width, height, model)
+      break
+    } catch (err) {
+      lastErr = err
+      const msg = err instanceof Error ? err.message : String(err)
+      if (!msg.includes("400") && !msg.includes("Model not found")) break
+    }
+  }
+  if (!result) throw lastErr || new Error("all vision models failed")
+  return {
+    height_cm: result.height_cm,
+    confidence: result.confidence,
+    _source: "vision-ai",
+    image_base64: imageBase64,
+  }
+}
+
 export async function estimateHeight(): Promise<HeightEstimate> {
   try {
     const shot = await captureStill()
@@ -131,20 +157,7 @@ export async function estimateHeight(): Promise<HeightEstimate> {
       console.warn("[camera] no capture, returning mock height")
       return { height_cm: 172, confidence: 0, _source: "mock" }
     }
-    let result: { height_cm: number; confidence: number } | null = null
-    let lastErr: unknown = null
-    for (const model of visionModelCandidates()) {
-      try {
-        result = await askVision(shot.base64, shot.width, shot.height, model)
-        break
-      } catch (err) {
-        lastErr = err
-        const msg = err instanceof Error ? err.message : String(err)
-        if (!msg.includes("400") && !msg.includes("Model not found")) break
-      }
-    }
-    if (!result) throw lastErr || new Error("all vision models failed")
-    return { height_cm: result.height_cm, confidence: result.confidence, _source: "vision-ai", image_base64: shot.base64 }
+    return await estimateHeightFromImage(shot.base64, shot.width, shot.height)
   } catch (err) {
     console.error("[camera] height estimation failed:", err)
     return { height_cm: 172, confidence: 0, _source: "mock" }

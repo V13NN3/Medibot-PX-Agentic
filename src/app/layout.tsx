@@ -45,7 +45,7 @@ export default function RootLayout({
         <KioskFit>
           <MenuProvider>
             <VoiceEngineProvider>
-              <header className="h-12 bg-status-bar flex items-center justify-between px-4 text-status-text text-xs font-mono shrink-0 touch-manipulation">
+              <header className="h-8 bg-status-bar flex items-center justify-center gap-4 px-4 text-status-text text-xs font-mono shrink-0 touch-manipulation">
                 <div className="flex items-center gap-3">
                   <Link
                     href="/"

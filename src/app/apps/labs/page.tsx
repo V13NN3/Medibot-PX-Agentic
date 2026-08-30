@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { analysisRows } from "@/lib/mock-labs"
 import { getRangeStatus } from "@/lib/utils"
+import { fetchStreamFrame } from "@/lib/camera-utils"
 
 interface Interpretation {
   name: string
@@ -38,8 +39,18 @@ export default function LabsPage() {
   const [interpreting, setInterpreting] = useState(false)
   const [interpretation, setInterpretation] = useState<InterpretResult | null>(null)
   const [capturing, setCapturing] = useState(false)
+  const [piCamera, setPiCamera] = useState<boolean | null>(null)
+  const piStreamImgRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    setPiCamera(window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1")
+  }, [])
 
   const startCamera = useCallback(async () => {
+    if (piCamera) {
+      setCameraOn(true)
+      return
+    }
     try {
       const s = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -53,7 +64,7 @@ export default function LabsPage() {
       console.warn("[labs] camera not available")
       setCameraOn(false)
     }
-  }, [])
+  }, [piCamera])
 
   const stopCamera = useCallback(() => {
     stream?.getTracks().forEach((t) => t.stop())
@@ -83,16 +94,29 @@ export default function LabsPage() {
   })
 
   const capturePhoto = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current) return
     setCapturing(true)
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    canvas.width = video.videoWidth || 640
-    canvas.height = video.videoHeight || 480
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    ctx.drawImage(video, 0, 0)
-    const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1]
+
+    let base64: string
+
+    if (piCamera) {
+      try {
+        base64 = await fetchStreamFrame("/api/camera/stream")
+      } catch {
+        setCapturing(false)
+        return
+      }
+    } else {
+      if (!videoRef.current || !canvasRef.current) { setCapturing(false); return }
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      canvas.width = video.videoWidth || 640
+      canvas.height = video.videoHeight || 480
+      const ctx = canvas.getContext("2d")
+      if (!ctx) { setCapturing(false); return }
+      ctx.drawImage(video, 0, 0)
+      base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1]
+    }
+
     setCaptured(base64)
     setCapturing(false)
 
@@ -116,7 +140,7 @@ export default function LabsPage() {
     } finally {
       setInterpreting(false)
     }
-  }, [])
+  }, [piCamera])
 
   const outOfRange = analysisRows.filter(
     (row) => getRangeStatus(row.value, row.referenceLow, row.referenceHigh) === "danger",
@@ -156,8 +180,12 @@ export default function LabsPage() {
             </button>
           ) : (
             <>
-              <video ref={videoRef} autoPlay playsInline muted
-                className="w-full rounded-xl bg-black" />
+              {piCamera ? (
+                <img ref={piStreamImgRef} src="/api/camera/stream" alt="Pi camera" className="w-full rounded-xl bg-black" />
+              ) : (
+                <video ref={videoRef} autoPlay playsInline muted
+                  className="w-full rounded-xl bg-black" />
+              )}
               <canvas ref={canvasRef} className="hidden" />
               <div className="flex gap-2 w-full">
                 <button onClick={capturePhoto} disabled={capturing || interpreting}

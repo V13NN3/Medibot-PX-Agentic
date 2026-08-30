@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { PcmCapture, PcmPlayer, unlockAudio } from "@/lib/pcm-audio"
+import { PcmCapture, PcmPlayer, requestMic, unlockAudio } from "@/lib/pcm-audio"
 import { toolDefinitions, toolHandlers } from "@/lib/tools"
 
 export type VoiceState = "idle" | "connecting" | "listening" | "responding" | "error"
@@ -42,6 +42,7 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
   const stateRef = useRef(state)
   const wsRef = useRef<WebSocket | null>(null)
   const captureRef = useRef<PcmCapture | null>(null)
+  const micStreamRef = useRef<MediaStream | null>(null)
   const playerRef = useRef<PcmPlayer | null>(null)
   const mutedRef = useRef(false)
   const chunkCount = useRef(0)
@@ -68,6 +69,10 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
   const cleanup = useCallback(() => {
     captureRef.current?.stop()
     captureRef.current = null
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((t) => t.stop())
+      micStreamRef.current = null
+    }
     wsRef.current?.close()
     wsRef.current = null
     playerRef.current?.stop()
@@ -146,6 +151,14 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
     setErrorMsg("")
     chunkCount.current = 0
 
+    try {
+      micStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch (err) {
+      setState("error")
+      setErrorMsg("Microphone permission is required for voice. Please allow microphone access and try again.")
+      return
+    }
+
     await unlockAudio()
 
     const ws = new WebSocket(RELAY_URL)
@@ -207,7 +220,7 @@ WORKFLOW - Guide patients through these steps IN ORDER:
 1. PATIENT CHECK: Ask for their name. Use search_patients to look up by name.
    - If EXACTLY ONE match found: use lookup_patient with name + dob to verify, then navigate_to("patient", { search: name }).
    - If MULTIPLE matches found: tell them "I found several patients with that name." Ask for their date of birth or age to narrow down. Use lookup_patient with name + dob to find the right one.
-   - If NO match found: ask for details (dob, sex, address, contact) and call create_patient.
+   - If NO match found: call navigate_to("patient") to open the Patient Records screen, then ask for details (dob, sex, address, contact) and call create_patient.
    After identifying the patient, use navigate_to("patient", { search: name }) to show their record.
 2. VITALS: navigate_to("vitals") to open the vitals app. Ask patient to step onto the sensors. Guide them through each step with measure_vital: weight, height, then temperature. After all measurements, ask if they want to save them.
    2a. HEIGHT: Before calling measure_vital("height"), tell the patient "Please step back 3 steps from the camera and stand straight with your feet on the ground, so your whole body is visible." Then call measure_vital("height").
@@ -292,8 +305,8 @@ PERSONALITY:
               } else {
                 silenceFrames.current = 0
               }
-            }
-}).catch((err) => {
+}
+            }, micStreamRef.current || undefined).catch((err) => {
               console.error("[voice] capture.start failed:", err)
               if (wsRef.current === ws) {
                 cleanup()

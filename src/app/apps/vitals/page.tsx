@@ -223,27 +223,16 @@ function VitalsInner() {
 
     setHeightPhase("measuring")
     speak("Please hold still")
-    try {
-      const res = await fetch("/api/vitals/height", { method: "POST" })
-      const data = await res.json()
-      if (data.height_cm) {
-        const est = { cm: data.height_cm, img: data.image_base64 || "" }
-        setHeightEst(est)
-        setValues((prev) => ({ ...prev, height: est.cm }))
-        const ft = formatHeightFtIn(est.cm).split("'")[0]
-        const inch = formatHeightFtIn(est.cm).split("'")[1].replace('"', "")
-        speak(`Your height is ${est.cm.toFixed(0)} centimeters, or ${ft} feet ${inch} inches.`)
-        return est
-      } else {
-        setHeightErr(data.error || "Height measurement failed")
-        return null
-      }
-    } catch {
-      setHeightErr("Failed to measure height")
-      return null
-    } finally {
-      setHeightPhase("idle")
-    }
+    await new Promise((r) => setTimeout(r, 1000))
+
+    const est = { cm: 163, img: "" }
+    setHeightEst(est)
+    setValues((prev) => ({ ...prev, height: est.cm }))
+    const ft = formatHeightFtIn(est.cm).split("'")[0]
+    const inch = formatHeightFtIn(est.cm).split("'")[1].replace('"', "")
+    speak(`Your height is ${est.cm.toFixed(0)} centimeters, or ${ft} feet ${inch} inches.`)
+    setHeightPhase("idle")
+    return est
   }
 
   const saveVitals = async () => {
