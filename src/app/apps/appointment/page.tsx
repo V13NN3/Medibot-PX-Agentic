@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
+import { useAppParams } from "@/hooks/use-app-params"
+import { useAppOverlay } from "@/contexts/app-overlay-context"
 
 const TIME_SLOTS = [
   "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM",
@@ -18,8 +19,8 @@ interface Doctor {
 }
 
 function AppointmentInner() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
+  const searchParams = useAppParams()
+  const { openApp, closeApp } = useAppOverlay()
   const doctorId = searchParams.get("doctorId")
 
   const [doctor, setDoctor] = useState<Doctor | null>(null)
@@ -81,7 +82,7 @@ function AppointmentInner() {
       const data = await res.json()
       if (data.appointment) {
         setSaved(true)
-        setTimeout(() => router.push("/apps/find-doctor"), 2000)
+        setTimeout(() => openApp("find-doctor"), 2000)
       } else {
         setError(data.error || "Booking failed")
       }
@@ -118,7 +119,7 @@ function AppointmentInner() {
   return (
     <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
       {!doctorId && (
-        <button onClick={() => router.push("/apps/find-doctor")}
+        <button onClick={() => openApp("find-doctor")}
           className="text-xs text-gray-500 hover:text-foreground transition-colors self-start">
           &larr; Back to Find My Doctor
         </button>
@@ -137,13 +138,13 @@ function AppointmentInner() {
         <>
           <p className="text-sm font-medium text-foreground">Would you like a diagnostic first?</p>
           <div className="grid grid-cols-3 gap-2">
-            <button onClick={() => router.push("/apps/vitals")}
+            <button onClick={() => openApp("vitals")}
               className="flex flex-col items-center gap-1 rounded-xl bg-gray-50 dark:bg-gray-800 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
               <span className="text-2xl">⚖️</span>
               <span className="text-xs font-semibold text-foreground">Vitals</span>
               <span className="text-[10px] text-gray-500 text-center">Weight, height, temperature</span>
             </button>
-            <button onClick={() => router.push("/apps/diagnostics?search=interactive")}
+            <button onClick={() => openApp("diagnostics", { search: "interactive" })}
               className="flex flex-col items-center gap-1 rounded-xl bg-gray-50 dark:bg-gray-800 p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
               <span className="text-2xl">💬</span>
               <span className="text-xs font-semibold text-foreground">Interactive</span>

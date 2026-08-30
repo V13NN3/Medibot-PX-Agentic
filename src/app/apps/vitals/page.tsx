@@ -1,6 +1,5 @@
 "use client"
 
-import { useSearchParams, useRouter } from "next/navigation"
 import { useState, useEffect, Suspense, useCallback, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { CountdownOverlay } from "@/components/countdown-overlay"
@@ -8,6 +7,8 @@ import { MeasureOverlay } from "@/components/measure-overlay"
 import { speak } from "@/lib/tts"
 import { fallbackO2, fallbackHR, fallbackWeight } from "@/lib/sensors"
 import type { PhotoAnalysis } from "@/lib/camera"
+import { useAppParams } from "@/hooks/use-app-params"
+import { useAppOverlay } from "@/contexts/app-overlay-context"
 
 interface Reading {
   weight_kg: number
@@ -44,8 +45,8 @@ function formatHeightFtIn(cm: number): string {
 }
 
 function VitalsInner() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
+  const searchParams = useAppParams()
+  const { openApp, closeApp } = useAppOverlay()
   const patientId = searchParams.get("patientId")
 
   const [reading, setReading] = useState<Reading | null>(null)
@@ -564,7 +565,7 @@ function VitalsInner() {
       const data = await res.json()
       if (data.saved) {
         setSaved(true)
-        setTimeout(() => router.push("/apps/patient"), 1500)
+        setTimeout(() => openApp("patient"), 1500)
       }
     } catch {
       setError("Failed to save vitals")

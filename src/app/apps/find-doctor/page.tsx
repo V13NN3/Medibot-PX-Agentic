@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
+import { useAppParams } from "@/hooks/use-app-params"
+import { useAppOverlay } from "@/contexts/app-overlay-context"
 
 interface Doctor {
   id: string
@@ -13,7 +14,8 @@ interface Doctor {
 }
 
 function FindDoctorInner() {
-  const searchParams = useSearchParams()
+  const searchParams = useAppParams()
+  const { openApp, closeApp } = useAppOverlay()
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(true)
@@ -45,7 +47,7 @@ function FindDoctorInner() {
   const unavailable = doctors.filter((d) => !d.available)
 
   const handleSelect = (doctor: Doctor) => {
-    window.location.href = `/apps/appointment?doctorId=${doctor.id}`
+    openApp("appointment", { doctorId: doctor.id })
   }
 
   return (

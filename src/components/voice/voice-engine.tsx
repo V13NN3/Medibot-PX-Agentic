@@ -1,9 +1,9 @@
 "use client"
 
 import { createContext, useCallback, useContext, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
 import { PcmCapture, PcmPlayer, requestMic, unlockAudio } from "@/lib/pcm-audio"
 import { toolDefinitions, toolHandlers } from "@/lib/tools"
+import { useAppOverlay } from "@/contexts/app-overlay-context"
 
 export type VoiceState = "idle" | "connecting" | "listening" | "responding" | "error"
 
@@ -36,7 +36,7 @@ const VoiceEngineContext = createContext<VoiceEngineValue>({
 })
 
 export function VoiceEngineProvider({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
+  const { openApp, closeApp } = useAppOverlay()
   const [state, setState] = useState<VoiceState>("idle")
   const [errorMsg, setErrorMsg] = useState("")
   const stateRef = useRef(state)
@@ -131,10 +131,10 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
         reAskCountRef.current = 0
         cleanup()
         setState("idle")
-        router.push("/")
+        closeApp()
       }
     }, NO_RESPONSE_TIMEOUT)
-  }, [clearResponseWait, cleanup, router])
+  }, [clearResponseWait, cleanup, closeApp])
 
   const toggle = useCallback(async () => {
     if (stateRef.current !== "idle" && stateRef.current !== "error") {
@@ -376,12 +376,16 @@ PERSONALITY:
 
             if (name === "navigate_to") {
               const app = String(args.app || "")
-              const search = args.search ? `?search=${encodeURIComponent(String(args.search))}` : ""
-              const path = app === "home" ? "/" : `/apps/${app}${search}`
-              router.push(path)
+              const params: Record<string, string> = {}
+              if (args.search) params.search = String(args.search)
+              if (app === "home") {
+                closeApp()
+              } else {
+                openApp(app, Object.keys(params).length > 0 ? params : undefined)
+              }
               ws.send(JSON.stringify({
                 type: "conversation.item.create",
-                item: { type: "function_call_output", call_id: callId, output: JSON.stringify({ navigated_to: path }) },
+                item: { type: "function_call_output", call_id: callId, output: JSON.stringify({ navigated_to: app }) },
               }))
             } else {
               const handler = toolHandlers[name]
@@ -457,7 +461,7 @@ PERSONALITY:
       setState("error")
       setErrorMsg("WebSocket connection failed. Is `npm run relay` running?")
     }
-  }, [cleanup, commitAndCreate, router, handleUserResponse, startNoResponseTimer])
+  }, [cleanup, commitAndCreate, handleUserResponse, startNoResponseTimer])
 
   return (
     <VoiceEngineContext.Provider value={{ state, errorMsg, toggle }}>

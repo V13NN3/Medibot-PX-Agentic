@@ -5,6 +5,7 @@ import { Menu } from "@/components/ui/menu"
 import { MenuProvider } from "@/components/ui/menu-context"
 import { KioskFit } from "@/components/kiosk-fit"
 import { VoiceEngineProvider } from "@/components/voice/voice-engine"
+import { AppOverlayProvider } from "@/contexts/app-overlay-context"
 import "./globals.css"
 
 export const viewport: Viewport = {
@@ -26,6 +27,10 @@ const NewPatientFill = dynamic(
   () => import("@/components/new-patient-fill").then((m) => ({ default: m.NewPatientFill })),
 )
 
+const AppOverlay = dynamic(
+  () => import("@/components/app-overlay").then((m) => ({ default: m.default })),
+)
+
 export const metadata: Metadata = {
   title: "Medibot PX",
   description: "Healthcare Assistant Robot OS",
@@ -44,30 +49,33 @@ export default function RootLayout({
       <body className="h-dvh flex flex-col bg-app-bg text-foreground overflow-hidden" suppressHydrationWarning>
         <KioskFit>
           <MenuProvider>
-            <VoiceEngineProvider>
-              <header className="h-8 bg-status-bar flex items-center justify-center gap-4 px-4 text-status-text text-xs font-mono shrink-0 touch-manipulation">
-                <div className="flex items-center gap-3">
-                  <Link
-                    href="/"
-                    className="text-[11px] font-semibold uppercase tracking-wider text-white/60 hover:text-white transition-colors"
-                  >
-                    Home
-                  </Link>
-                  <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                  <span className="font-semibold uppercase tracking-wider">Idle</span>
-                </div>
-                <span className="text-[10px] text-white/40">Medibot PX v0.1.0</span>
-                <Menu />
-              </header>
+              <AppOverlayProvider>
+                <VoiceEngineProvider>
+                  <header className="h-8 bg-status-bar flex items-center justify-center gap-4 px-4 text-status-text text-xs font-mono shrink-0 touch-manipulation">
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href="/"
+                        className="text-[11px] font-semibold uppercase tracking-wider text-white/60 hover:text-white transition-colors"
+                      >
+                        Home
+                      </Link>
+                      <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                      <span className="font-semibold uppercase tracking-wider">Idle</span>
+                    </div>
+                    <span className="text-[10px] text-white/40">Medibot PX v0.1.0</span>
+                    <Menu />
+                  </header>
 
-              <main className="flex-1 flex flex-col overflow-hidden">
-                {children}
-              </main>
+                  <main className="flex-1 flex flex-col overflow-hidden">
+                    {children}
+                  </main>
 
-              <VoiceButton compact />
-              <QueueMonitor />
-              <NewPatientFill />
-            </VoiceEngineProvider>
+                  <VoiceButton compact />
+                  <QueueMonitor />
+                  <NewPatientFill />
+                  <AppOverlay />
+                </VoiceEngineProvider>
+              </AppOverlayProvider>
           </MenuProvider>
         </KioskFit>
       </body>

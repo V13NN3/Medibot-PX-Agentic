@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { CountdownOverlay } from "@/components/countdown-overlay"
 import { speak } from "@/lib/tts"
 import { fetchStreamFrame, captureStillFrame } from "@/lib/camera-utils"
+import { useAppParams } from "@/hooks/use-app-params"
+import { useAppOverlay } from "@/contexts/app-overlay-context"
 
 type PageState = "search" | "results" | "verify" | "detail" | "new-patient"
 
@@ -53,8 +54,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const CURRENT_YEAR = new Date().getFullYear()
 
 function PatientInner() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
+  const searchParams = useAppParams()
+  const { openApp, closeApp } = useAppOverlay()
   const [pageState, setPageState] = useState<PageState>("search")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<PatientSummary[]>([])
@@ -364,7 +365,7 @@ function PatientInner() {
 
   const goToVitals = () => {
     if (patient) {
-      router.push(`/apps/vitals?patientId=${patient.id}`)
+      openApp("vitals", { patientId: patient.id })
     }
   }
 
