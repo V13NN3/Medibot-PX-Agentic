@@ -23,6 +23,27 @@ const SILENCE_THRESHOLD = 0.025
 const SILENCE_FRAMES_MAX = 10
 const NO_RESPONSE_TIMEOUT = 5000
 
+const TRANSCRIPT_APP_MAP: Array<{ keywords: string[]; app: string }> = [
+  { keywords: ["register", "registration", "new patient", "sign up", "enroll", "patient record"], app: "patient" },
+  { keywords: ["vitals", "weight", "height", "temperature", "blood pressure", "measure"], app: "vitals" },
+  { keywords: ["lab", "x-ray", "xray", "scan", "results", "blood test"], app: "labs" },
+  { keywords: ["find doctor", "doctor", "specialist", "physician"], app: "find-doctor" },
+  { keywords: ["appointment", "schedule", "book", "booking"], app: "appointment" },
+  { keywords: ["symptom", "diagnostic", "diagnosis", "checkup", "feeling"], app: "diagnostics" },
+  { keywords: ["queue", "line number", "ticket", "now serving"], app: "queue" },
+  { keywords: ["prescription", "rx", "medicine", "medication"], app: "rx" },
+  { keywords: ["emergency", "urgent", "telehealth", "video call", "doctor call"], app: "telehealth" },
+]
+
+function matchAppFromTranscript(transcript: string): string | null {
+  for (const entry of TRANSCRIPT_APP_MAP) {
+    for (const kw of entry.keywords) {
+      if (transcript.includes(kw)) return entry.app
+    }
+  }
+  return null
+}
+
 interface VoiceEngineValue {
   state: VoiceState
   errorMsg: string
@@ -50,6 +71,8 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
   const functionCallId = useRef("")
   const functionCallName = useRef("")
   const functionCallArgs = useRef("")
+  const audioTranscriptRef = useRef("")
+  const navigateCalledRef = useRef(false)
   const awaitingResponseRef = useRef(false)
   const responseWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reAskCountRef = useRef(0)
@@ -313,6 +336,8 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
 
         if (msg.type === "response.created") {
           console.log("[voice] response.created")
+          audioTranscriptRef.current = ""
+          navigateCalledRef.current = false
           return
         }
 
@@ -344,6 +369,7 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
             const args = raw ? JSON.parse(raw) : {}
 
             if (name === "navigate_to") {
+              navigateCalledRef.current = true
               const app = String(args.app || "")
               const params: Record<string, string> = {}
               if (args.search) params.search = String(args.search)
@@ -390,8 +416,29 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
           return
         }
 
+        if (msg.type === "response.audio_transcript.delta") {
+          audioTranscriptRef.current += msg.delta || ""
+          return
+        }
+
+        if (msg.type === "response.audio_transcript.done") {
+          if (msg.transcript) audioTranscriptRef.current = msg.transcript
+          console.log("[voice] transcript:", audioTranscriptRef.current)
+          return
+        }
+
         if (msg.type === "response.done") {
           console.log("[voice] response.done")
+          const transcript = audioTranscriptRef.current.toLowerCase()
+          if (transcript && !navigateCalledRef.current) {
+            const app = matchAppFromTranscript(transcript)
+            if (app) {
+              console.log("[voice] auto-opening overlay from transcript:", app)
+              openApp(app)
+            }
+          }
+          audioTranscriptRef.current = ""
+          navigateCalledRef.current = false
           return
         }
 

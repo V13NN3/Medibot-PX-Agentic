@@ -53,6 +53,8 @@ export default function AppOverlay() {
     return () => window.removeEventListener("open-app-overlay", onOpen)
   }, [openApp])
 
+  console.log("[overlay] render currentApp:", currentApp)
+
   if (!currentApp) return null
 
   const AppComponent = APP_COMPONENTS[currentApp]
