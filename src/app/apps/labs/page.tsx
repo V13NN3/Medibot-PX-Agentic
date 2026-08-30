@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { analysisRows } from "@/lib/mock-labs"
 import { getRangeStatus } from "@/lib/utils"
-import { fetchStreamFrame } from "@/lib/camera-utils"
+import { fetchStreamFrame, captureStillFrame } from "@/lib/camera-utils"
 
 interface Interpretation {
   name: string
@@ -99,8 +99,10 @@ export default function LabsPage() {
     let base64: string
 
     if (piCamera) {
+      setCameraOn(false)
+      await new Promise((r) => setTimeout(r, 1500))
       try {
-        base64 = await fetchStreamFrame("/api/camera/stream")
+        base64 = await captureStillFrame("/api/camera/capture")
       } catch {
         setCapturing(false)
         return

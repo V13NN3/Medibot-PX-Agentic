@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { CountdownOverlay } from "@/components/countdown-overlay"
 import { speak } from "@/lib/tts"
-import { fetchStreamFrame } from "@/lib/camera-utils"
+import { fetchStreamFrame, captureStillFrame } from "@/lib/camera-utils"
 
 type PageState = "search" | "results" | "verify" | "detail" | "new-patient"
 
@@ -115,10 +115,12 @@ function PatientInner() {
         setFaceCount(n)
         await new Promise((r) => setTimeout(r, 1000))
       }
-      setFacePhase("capturing")
       speak("Look at the camera and hold still.")
+      setFacePhase("idle")
+      await new Promise((r) => setTimeout(r, 1500))
       try {
-        const base64 = await fetchStreamFrame("/api/camera/stream")
+        setFacePhase("capturing")
+        const base64 = await captureStillFrame("/api/camera/capture")
         setNewForm((prev) => ({ ...prev, photo: base64 }))
       } catch {
         setFaceErr("Capture failed")

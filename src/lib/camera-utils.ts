@@ -41,6 +41,19 @@ export async function fetchStreamFrame(streamUrl: string): Promise<string> {
   }
 }
 
+export async function captureStillFrame(captureUrl: string): Promise<string> {
+  const res = await fetch(captureUrl)
+  if (!res.ok) throw new Error("capture failed")
+  const blob = await res.blob()
+  const buf = await blob.arrayBuffer()
+  const bytes = new Uint8Array(buf)
+  let binary = ""
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
 function findSOI(buf: Uint8Array): number {
   for (let i = 0; i < buf.length - 1; i++) {
     if (buf[i] === 0xff && buf[i + 1] === 0xd8) return i
