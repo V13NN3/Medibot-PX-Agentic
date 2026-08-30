@@ -2,8 +2,6 @@
 
 let sharedCtx: AudioContext | null = null
 
-const GROK_TTS_URL = "https://api.x.ai/v1/audio/speech"
-
 export async function speak(text: string): Promise<void> {
   console.log("[tts] speaking:", text)
 
@@ -32,57 +30,16 @@ export async function speak(text: string): Promise<void> {
         await new Promise<void>((resolve) => {
           source.onended = () => resolve()
         })
-        console.log("[tts] played successfully via server")
+        console.log("[tts] played via Google TTS")
         return
       }
     }
-    console.warn("[tts] server TTS failed, trying Grok directly")
   } catch {
-    console.warn("[tts] server TTS unreachable, trying Grok directly")
-  }
-
-  try {
-    const apiKey = process.env.NEXT_PUBLIC_GROK_VOICE_API_KEY || ""
-    if (apiKey) {
-      const res = await fetch(GROK_TTS_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "grok-voice-think-fast-1.0",
-          input: text,
-          voice: "echo",
-          response_format: "mp3",
-        }),
-      })
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        const audio = new Audio(url)
-        await new Promise<void>((resolve) => {
-          audio.onended = () => {
-            URL.revokeObjectURL(url)
-            resolve()
-          }
-          audio.onerror = () => {
-            URL.revokeObjectURL(url)
-            resolve()
-          }
-          audio.play()
-        })
-        console.log("[tts] played via Grok direct")
-        return
-      }
-      console.warn("[tts] Grok direct failed:", res.status)
-    }
-  } catch (err) {
-    console.warn("[tts] Grok direct error:", err)
+    /* server TTS unavailable */
   }
 
   if (typeof window !== "undefined" && window.speechSynthesis) {
-    console.log("[tts] falling back to browser speechSynthesis")
+    console.log("[tts] using browser speechSynthesis")
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = "en-US"
     utterance.rate = 1.1
