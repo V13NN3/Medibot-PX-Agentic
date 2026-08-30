@@ -164,6 +164,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../src/app/api/camera/analyze/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/camera/analyze">> = Specific
+  const handler = {} as typeof import("../../src/app/api/camera/analyze/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../src/app/api/camera/capture/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/camera/capture">> = Specific
