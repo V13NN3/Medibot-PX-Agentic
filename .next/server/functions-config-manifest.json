@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/camera/capture": {},
+    "/api/camera/stream": {},
+    "/api/printer/status": {},
+    "/api/vitals/heartrate": {},
+    "/api/vitals/o2": {}
+  }
+}
