@@ -70,6 +70,8 @@ function VitalsInner() {
   const [weightErr, setWeightErr] = useState("")
   const [tempPhase, setTempPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
   const [tempErr, setTempErr] = useState("")
+  const [videoSrc, setVideoSrc] = useState<string | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [printMsg, setPrintMsg] = useState("")
@@ -89,6 +91,32 @@ function VitalsInner() {
   }, [])
 
   const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+  const playVideo = (src: string) =>
+    new Promise<void>((resolve) => {
+      console.log("[vitals] playing instructional video:", src)
+      setVideoSrc(src)
+      const checkReady = () => {
+        const v = videoRef.current
+        if (!v) { requestAnimationFrame(checkReady); return }
+        v.onended = () => {
+          console.log("[vitals] video ended:", src)
+          setVideoSrc(null)
+          resolve()
+        }
+        v.onerror = () => {
+          console.warn("[vitals] video error, skipping:", src)
+          setVideoSrc(null)
+          resolve()
+        }
+        v.play().catch(() => {
+          console.warn("[vitals] video play blocked, skipping:", src)
+          setVideoSrc(null)
+          resolve()
+        })
+      }
+      requestAnimationFrame(checkReady)
+    })
 
   const runCountdown = async () => {
     setGlobalCountdown(true)
@@ -299,6 +327,7 @@ function VitalsInner() {
   const measureHeight = async (): Promise<{ cm: number; img: string } | null> => {
     if (heightPhase === "instruct" || heightPhase === "countdown" || heightPhase === "measuring") return null
     setHeightErr("")
+    await playVideo("/height.mp4")
     setHeightPhase("instruct")
     console.log("[vitals] height: instructing patient to step back")
     speak("Please step back 3 steps from the camera and stand straight with your feet on the ground.")
@@ -341,6 +370,7 @@ function VitalsInner() {
   const measureO2 = async () => {
     if (o2Phase !== "idle") return
     setO2Err("")
+    await playVideo("/bloodoxygen.mp4")
     setO2Phase("instruct")
     console.log("[vitals] O2: instructing patient to place finger on sensor")
     speak("Place your finger on the sensor and hold still.")
@@ -380,6 +410,7 @@ function VitalsInner() {
   const measureHeartRate = async () => {
     if (hrPhase !== "idle") return
     setHrErr("")
+    await playVideo("/heartrate.mp4")
     setHrPhase("instruct")
     console.log("[vitals] HR: instructing patient to place finger on sensor")
     speak("Place your finger on the sensor and hold still.")
@@ -419,6 +450,7 @@ function VitalsInner() {
   const measureWeight = async () => {
     if (weightPhase !== "idle") return
     setWeightErr("")
+    await playVideo("/weight.mp4")
     setWeightPhase("instruct")
     console.log("[vitals] weight: instructing patient to step on scale")
     speak("Please step on the weighing platform and stand still.")
@@ -476,6 +508,7 @@ function VitalsInner() {
   const measureTemperature = async () => {
     if (tempPhase !== "idle") return
     setTempErr("")
+    await playVideo("/temperature.mp4")
     setTempPhase("instruct")
     console.log("[vitals] temp: instructing patient")
     speak("Temperature will be measured from the eye of the robot. Please look toward the robot's eye.")
@@ -779,6 +812,13 @@ function VitalsInner() {
       )}
 
       <CountdownOverlay number={countdownNum} show={heightPhase === "countdown" || globalCountdown} />
+
+      {videoSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
+          <video ref={videoRef} src={videoSrc} muted playsInline
+            className="max-w-full max-h-full rounded-2xl shadow-2xl" />
+        </div>
+      )}
     </div>
   )
 }

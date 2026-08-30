@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         input: { text },
-        voice: { languageCode: "en-US", name: "en-US-Standard-F" },
-        audioConfig: { audioEncoding: "MP3", speakingRate: 1.1 },
+        voice: { languageCode: "en-US", name: "en-US-Neural2-F" },
+        audioConfig: { audioEncoding: "MP3", speakingRate: 1.05 },
       }),
     })
 
