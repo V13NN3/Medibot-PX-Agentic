@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import dynamic from "next/dynamic"
 import { useAppOverlay } from "@/contexts/app-overlay-context"
 
@@ -41,7 +42,16 @@ const APP_COMPONENTS: Record<string, React.ComponentType> = {
 }
 
 export default function AppOverlay() {
-  const { currentApp, closeApp } = useAppOverlay()
+  const { currentApp, openApp, closeApp } = useAppOverlay()
+
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { app: string; params?: Record<string, string> }
+      if (detail?.app) openApp(detail.app, detail.params)
+    }
+    window.addEventListener("open-app-overlay", onOpen)
+    return () => window.removeEventListener("open-app-overlay", onOpen)
+  }, [openApp])
 
   if (!currentApp) return null
 
@@ -54,8 +64,8 @@ export default function AppOverlay() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-gray-950 animate-in slide-in-from-right duration-200">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+    <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-gray-950 overlay-slide-in">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shrink-0">
         <button
           onClick={closeApp}
           className="flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-foreground transition-colors"

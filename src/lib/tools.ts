@@ -352,12 +352,12 @@ export const toolHandlers: Record<string, ToolHandler> = {
 
   navigate_to: async (args) => {
     const app = String(args.app || "")
-    const search = args.search ? `?search=${encodeURIComponent(String(args.search))}` : ""
-    const path = app === "home" ? "/" : `/apps/${app}${search}`
+    const params: Record<string, string> = {}
+    if (args.search) params.search = String(args.search)
     if (typeof window !== "undefined") {
-      window.location.href = path
+      window.dispatchEvent(new CustomEvent("open-app-overlay", { detail: { app, params } }))
     }
-    return JSON.stringify({ navigated_to: path })
+    return JSON.stringify({ navigated_to: app })
   },
 }
 

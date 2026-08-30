@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useAppOverlay } from "@/contexts/app-overlay-context"
 
 export function NewPatientFill() {
-  const router = useRouter()
+  const { openApp } = useAppOverlay()
 
   useEffect(() => {
     const onFill = (e: Event) => {
@@ -17,14 +17,12 @@ export function NewPatientFill() {
       } catch {
         /* ignore */
       }
-      if (!window.location.pathname.startsWith("/apps/patient")) {
-        router.push("/apps/patient?new=1")
-      }
+      openApp("patient", { new: "1" })
     }
 
     window.addEventListener("voice-create-patient", onFill)
     return () => window.removeEventListener("voice-create-patient", onFill)
-  }, [router])
+  }, [openApp])
 
   return null
 }

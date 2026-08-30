@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation"
 import { useAppOverlay } from "@/contexts/app-overlay-context"
 
 export function useAppParams() {
+  const urlParams = useSearchParams()
   const { currentApp, appParams } = useAppOverlay()
 
   if (currentApp) {
@@ -13,5 +14,5 @@ export function useAppParams() {
     }
   }
 
-  return useSearchParams()
+  return urlParams
 }

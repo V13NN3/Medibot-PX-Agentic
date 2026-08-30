@@ -139,3 +139,12 @@ body {
   background: rgba(148, 163, 184, 0.6);
   border-radius: 9999px;
 }
+
+@keyframes overlay-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.overlay-slide-in {
+  animation: overlay-slide-in 0.2s ease-out;
+}
