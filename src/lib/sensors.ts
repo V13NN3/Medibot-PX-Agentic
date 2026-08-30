@@ -85,22 +85,29 @@ export async function readO2Sensor(): Promise<{ o2_percentage: number; raw_adc: 
   const isRpi = process.platform === "linux" && process.arch === "arm64"
   if (!isRpi) return { o2_percentage: 20.9, raw_adc: O2_BASELINE_ADC }
 
-  try {
-    const mod = "i2c-bus"
-    const { default: i2c } = await import(/* webpackIgnore: true */ mod)
-    const bus = i2c.openSync(O2_I2C_BUS)
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const data = bus.readI2cBlockSync(O2_I2C_ADDR, 0x00, 4, Buffer.alloc(4))
-      const raw_adc = (data[0] << 8) | data[1]
-      const o2_percentage = (raw_adc / O2_BASELINE_ADC) * O2_BASELINE_PCT
-      return { o2_percentage, raw_adc }
-    } finally {
-      bus.closeSync()
+      const mod = "i2c-bus"
+      const { default: i2c } = await import(/* webpackIgnore: true */ mod)
+      const bus = i2c.openSync(O2_I2C_BUS)
+      try {
+        const buf = Buffer.alloc(4)
+        bus.writeByteSync(O2_I2C_ADDR, 0x00, 0x00)
+        const data = bus.readI2cBlockSync(O2_I2C_ADDR, 0x00, 4, buf)
+        const raw_adc = (data.buffer[0] << 8) | data.buffer[1]
+        const o2_percentage = (raw_adc / O2_BASELINE_ADC) * O2_BASELINE_PCT
+        console.log(`[sensors] O2 read OK: raw=${raw_adc} o2=${o2_percentage.toFixed(1)}% (attempt ${attempt})`)
+        return { o2_percentage, raw_adc }
+      } finally {
+        bus.closeSync()
+      }
+    } catch (err) {
+      console.warn(`[sensors] O2 I2C attempt ${attempt}/3 failed:`, err instanceof Error ? err.message : err)
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 200))
     }
-  } catch (err) {
-    console.error("[sensors] O2 I2C error:", err)
-    return null
   }
+  console.error("[sensors] O2 I2C: all 3 attempts failed")
+  return null
 }
 
 const HR_I2C_BUS = 10
@@ -110,20 +117,27 @@ export async function readHeartRateSensor(): Promise<{ heart_rate: number; raw_a
   const isRpi = process.platform === "linux" && process.arch === "arm64"
   if (!isRpi) return { heart_rate: 72, raw_adc: 0 }
 
-  try {
-    const mod = "i2c-bus"
-    const { default: i2c } = await import(/* webpackIgnore: true */ mod)
-    const bus = i2c.openSync(HR_I2C_BUS)
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const data = bus.readI2cBlockSync(HR_I2C_ADDR, 0x00, 4, Buffer.alloc(4))
-      const raw_adc = (data[2] << 8) | data[3]
-      const heart_rate = raw_adc > 0 ? Math.round((raw_adc / 1024.0) * 180) : 0
-      return { heart_rate, raw_adc }
-    } finally {
-      bus.closeSync()
+      const mod = "i2c-bus"
+      const { default: i2c } = await import(/* webpackIgnore: true */ mod)
+      const bus = i2c.openSync(HR_I2C_BUS)
+      try {
+        const buf = Buffer.alloc(4)
+        bus.writeByteSync(HR_I2C_ADDR, 0x00, 0x00)
+        const data = bus.readI2cBlockSync(HR_I2C_ADDR, 0x00, 4, buf)
+        const raw_adc = (data.buffer[2] << 8) | data.buffer[3]
+        const heart_rate = raw_adc > 0 ? Math.round((raw_adc / 1024.0) * 180) : 0
+        console.log(`[sensors] HR read OK: raw=${raw_adc} hr=${heart_rate}bpm (attempt ${attempt})`)
+        return { heart_rate, raw_adc }
+      } finally {
+        bus.closeSync()
+      }
+    } catch (err) {
+      console.warn(`[sensors] HR I2C attempt ${attempt}/3 failed:`, err instanceof Error ? err.message : err)
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 200))
     }
-  } catch (err) {
-    console.error("[sensors] HR I2C error:", err)
-    return null
   }
+  console.error("[sensors] HR I2C: all 3 attempts failed")
+  return null
 }
