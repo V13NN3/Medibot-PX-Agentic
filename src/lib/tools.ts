@@ -247,6 +247,16 @@ export const toolHandlers: Record<string, ToolHandler> = {
       return JSON.stringify({ ...reading, _source: heightRes._source || "vision-ai" })
     }
 
+    if (measurement === "oxygen") {
+      const o2Res = (await apiGet("/api/vitals/o2")) as { o2_percentage?: number; raw_adc?: number }
+      const readRes = (await apiGet("/api/vitals/read")) as Record<string, unknown>
+      const reading = { ...readRes, oxygen_saturation: o2Res.o2_percentage ?? readRes.oxygen_saturation }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("vitals-reading", { detail: { reading } }))
+      }
+      return JSON.stringify(reading)
+    }
+
     const data = await apiGet("/api/vitals/read")
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("vitals-reading", { detail: { reading: data } }))

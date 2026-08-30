@@ -57,9 +57,11 @@ function VitalsInner() {
   const [manualOverrides, setManualOverrides] = useState<Partial<Record<MeasurementKey, number>>>({})
   const tapsRef = useRef<number[]>([])
   const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
+  const [o2Phase, setO2Phase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
   const [countdownNum, setCountdownNum] = useState(3)
   const [heightEst, setHeightEst] = useState<{ cm: number; img: string } | null>(null)
   const [heightErr, setHeightErr] = useState("")
+  const [o2Err, setO2Err] = useState("")
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [printMsg, setPrintMsg] = useState("")
@@ -235,6 +237,36 @@ function VitalsInner() {
     return est
   }
 
+  const measureO2 = async () => {
+    if (o2Phase !== "idle") return
+    setO2Err("")
+    setO2Phase("instruct")
+    speak("Place your finger on the sensor and hold still.")
+    await new Promise((r) => setTimeout(r, 2500))
+
+    setO2Phase("countdown")
+    speak("Get ready. Three, two, one.")
+    for (let n = 3; n >= 1; n--) {
+      setCountdownNum(n)
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+
+    setO2Phase("measuring")
+    speak("Measuring now. Hold still.")
+    try {
+      const res = await fetch("/api/vitals/o2")
+      if (!res.ok) throw new Error("O2 sensor unavailable")
+      const data = await res.json()
+      const o2 = data.o2_percentage
+      setValues((prev) => ({ ...prev, oxygen: o2 }))
+      speak(`Your oxygen level is ${o2.toFixed(0)} percent.`)
+    } catch {
+      setO2Err("O2 measurement failed")
+    } finally {
+      setO2Phase("idle")
+    }
+  }
+
   const saveVitals = async () => {
     if (!reading || !patientId) return
     setSaving(true)
@@ -317,7 +349,7 @@ function VitalsInner() {
     }
   }, [reveal])
 
-  const busy = heightPhase !== "idle"
+  const busy = heightPhase !== "idle" || o2Phase !== "idle"
 
   return (
     <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-hidden">
@@ -369,7 +401,7 @@ function VitalsInner() {
       <div className="grid grid-cols-2 gap-2">
         {MEASUREMENTS.map((m) => {
           const isMeasuring = measuring.includes(m.key)
-          const isBusy = isMeasuring || (m.key === "height" && busy)
+          const isBusy = isMeasuring || (m.key === "height" && busy) || (m.key === "oxygen" && o2Phase !== "idle")
           const raw = values[m.key] ?? null
           const value = raw != null ? m.fmt(raw) : null
           const heightCm = m.key === "height" ? raw : null
@@ -401,6 +433,12 @@ function VitalsInner() {
                 <button onClick={measureHeight} disabled={starting || measuring.length > 0 || busy}
                   className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
                   {heightPhase === "instruct" ? "Step back..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : value ? "Re-measure" : "Measure"}
+                </button>
+              )}
+              {m.key === "oxygen" && (
+                <button onClick={measureO2} disabled={starting || measuring.length > 0 || busy}
+                  className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                  {o2Phase === "instruct" ? "Place finger..." : o2Phase === "countdown" ? "Get ready..." : o2Phase === "measuring" ? "Measuring..." : value ? "Re-measure" : "Measure"}
                 </button>
               )}
             </Card>

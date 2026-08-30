@@ -75,3 +75,30 @@ function readHeightI2C(bus: { readByteSync: (addr: number, cmd: number) => numbe
     return 172
   }
 }
+
+const O2_I2C_BUS = 10
+const O2_I2C_ADDR = 0x64
+const O2_BASELINE_ADC = 1041.0
+const O2_BASELINE_PCT = 20.9
+
+export async function readO2Sensor(): Promise<{ o2_percentage: number; raw_adc: number } | null> {
+  const isRpi = process.platform === "linux" && process.arch === "arm64"
+  if (!isRpi) return { o2_percentage: 20.9, raw_adc: O2_BASELINE_ADC }
+
+  try {
+    const mod = "i2c-bus"
+    const { default: i2c } = await import(/* webpackIgnore: true */ mod)
+    const bus = i2c.openSync(O2_I2C_BUS)
+    try {
+      const data = bus.readI2cBlockSync(O2_I2C_ADDR, 0x00, 4, Buffer.alloc(4))
+      const raw_adc = (data[0] << 8) | data[1]
+      const o2_percentage = (raw_adc / O2_BASELINE_ADC) * O2_BASELINE_PCT
+      return { o2_percentage, raw_adc }
+    } finally {
+      bus.closeSync()
+    }
+  } catch (err) {
+    console.error("[sensors] O2 I2C error:", err)
+    return null
+  }
+}
