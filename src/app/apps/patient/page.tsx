@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { CountdownOverlay } from "@/components/countdown-overlay"
 import { speak } from "@/lib/tts"
@@ -54,6 +54,7 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 function PatientInner() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [pageState, setPageState] = useState<PageState>("search")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<PatientSummary[]>([])
@@ -354,7 +355,7 @@ function PatientInner() {
 
   const goToVitals = () => {
     if (patient) {
-      window.location.href = `/apps/vitals?patientId=${patient.id}`
+      router.push(`/apps/vitals?patientId=${patient.id}`)
     }
   }
 

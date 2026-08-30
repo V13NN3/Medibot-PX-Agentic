@@ -277,23 +277,6 @@ PERSONALITY:
         if (msg.type === "session.updated") {
           clearTimeout(sessionTimer)
           console.log("[voice] session.updated → starting audio capture")
-
-          const currentPath = typeof window !== "undefined" ? window.location.pathname : "/"
-          const pageHint = currentPath.startsWith("/apps/")
-            ? currentPath.replace("/apps/", "").split("?")[0]
-            : "home"
-          if (pageHint !== "home") {
-            console.log("[voice] sending page context:", pageHint)
-            ws.send(JSON.stringify({
-              type: "conversation.item.create",
-              item: {
-                type: "message",
-                role: "user",
-                content: [{ type: "input_text", text: `[System: The patient is currently on the ${pageHint} page. They clicked the voice button for help in this section. Do NOT repeat the introduction. Do NOT say "This is Medibot PX". Help them with what they need on this page. If they haven't spoken yet, briefly and warmly offer help for this specific page.]` }],
-              },
-            }))
-          }
-
           setState("listening")
           capture.start((base64, float32) => {
             chunkCount.current++
