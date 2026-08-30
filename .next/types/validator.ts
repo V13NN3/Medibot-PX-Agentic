@@ -263,6 +263,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../src/app/api/printer/status/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/printer/status">> = Specific
+  const handler = {} as typeof import("../../src/app/api/printer/status/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../src/app/api/queue/next/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/queue/next">> = Specific
@@ -339,6 +348,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/vitals/height">> = Specific
   const handler = {} as typeof import("../../src/app/api/vitals/height/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/app/api/vitals/o2/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/vitals/o2">> = Specific
+  const handler = {} as typeof import("../../src/app/api/vitals/o2/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check

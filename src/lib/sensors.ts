@@ -102,3 +102,28 @@ export async function readO2Sensor(): Promise<{ o2_percentage: number; raw_adc: 
     return null
   }
 }
+
+const HR_I2C_BUS = 10
+const HR_I2C_ADDR = 0x64
+
+export async function readHeartRateSensor(): Promise<{ heart_rate: number; raw_adc: number } | null> {
+  const isRpi = process.platform === "linux" && process.arch === "arm64"
+  if (!isRpi) return { heart_rate: 72, raw_adc: 0 }
+
+  try {
+    const mod = "i2c-bus"
+    const { default: i2c } = await import(/* webpackIgnore: true */ mod)
+    const bus = i2c.openSync(HR_I2C_BUS)
+    try {
+      const data = bus.readI2cBlockSync(HR_I2C_ADDR, 0x00, 4, Buffer.alloc(4))
+      const raw_adc = (data[2] << 8) | data[3]
+      const heart_rate = raw_adc > 0 ? Math.round((raw_adc / 1024.0) * 180) : 0
+      return { heart_rate, raw_adc }
+    } finally {
+      bus.closeSync()
+    }
+  } catch (err) {
+    console.error("[sensors] HR I2C error:", err)
+    return null
+  }
+}

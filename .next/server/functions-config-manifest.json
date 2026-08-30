@@ -1,7 +1,9 @@
 {
   "version": 1,
   "functions": {
-    "/api/camera/capture": {},
-    "/api/camera/stream": {}
+    "/api/vitals/o2": {},
+    "/api/camera/stream": {},
+    "/api/printer/status": {},
+    "/api/camera/capture": {}
   }
 }
