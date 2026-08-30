@@ -215,6 +215,7 @@ function VitalsInner() {
     if (heightPhase === "instruct" || heightPhase === "countdown" || heightPhase === "measuring") return null
     setHeightErr("")
     setHeightPhase("instruct")
+    console.log("[vitals] height: instructing patient to step back")
     speak("Please step back 3 steps from the camera and stand straight with your feet on the ground.")
     await new Promise((r) => setTimeout(r, 2500))
 
@@ -226,23 +227,37 @@ function VitalsInner() {
     }
 
     setHeightPhase("measuring")
+    console.log("[vitals] height: capturing photo from Pi camera...")
     speak("Please hold still")
-    await new Promise((r) => setTimeout(r, 1000))
-
-    const est = { cm: 163, img: "" }
-    setHeightEst(est)
-    setValues((prev) => ({ ...prev, height: est.cm }))
-    const ft = formatHeightFtIn(est.cm).split("'")[0]
-    const inch = formatHeightFtIn(est.cm).split("'")[1].replace('"', "")
-    speak(`Your height is ${est.cm.toFixed(0)} centimeters, or ${ft} feet ${inch} inches.`)
-    setHeightPhase("idle")
-    return est
+    try {
+      const res = await fetch("/api/vitals/height", { method: "POST" })
+      if (!res.ok) throw new Error("Height API failed")
+      const data = await res.json()
+      const cm = data.height_cm ?? 172
+      const img = data.image_base64 ?? ""
+      const confidence = data.confidence ?? 0
+      console.log(`[vitals] height: estimate=${cm}cm confidence=${confidence}% source=${data._source}`)
+      const est = { cm, img }
+      setHeightEst(est)
+      setValues((prev) => ({ ...prev, height: cm }))
+      const ft = formatHeightFtIn(cm).split("'")[0]
+      const inch = formatHeightFtIn(cm).split("'")[1].replace('"', "")
+      speak(`Your height is ${cm.toFixed(0)} centimeters, or ${ft} feet ${inch} inches.`)
+      setHeightPhase("idle")
+      return est
+    } catch (err) {
+      console.error("[vitals] height: measurement failed:", err)
+      setHeightErr("Height measurement failed")
+      setHeightPhase("idle")
+      return null
+    }
   }
 
   const measureO2 = async () => {
     if (o2Phase !== "idle") return
     setO2Err("")
     setO2Phase("instruct")
+    console.log("[vitals] O2: instructing patient to place finger on sensor")
     speak("Place your finger on the sensor and hold still.")
     await new Promise((r) => setTimeout(r, 2500))
 
@@ -254,15 +269,18 @@ function VitalsInner() {
     }
 
     setO2Phase("measuring")
+    console.log("[vitals] O2: reading I2C sensor...")
     speak("Measuring now. Hold still.")
     try {
       const res = await fetch("/api/vitals/o2")
       if (!res.ok) throw new Error("O2 sensor unavailable")
       const data = await res.json()
       const o2 = data.o2_percentage
+      console.log(`[vitals] O2: result=${o2}% raw_adc=${data.raw_adc}`)
       setValues((prev) => ({ ...prev, oxygen: o2 }))
       speak(`Your oxygen level is ${o2.toFixed(0)} percent.`)
     } catch {
+      console.error("[vitals] O2: measurement failed")
       setO2Err("O2 measurement failed")
     } finally {
       setO2Phase("idle")
@@ -273,6 +291,7 @@ function VitalsInner() {
     if (hrPhase !== "idle") return
     setHrErr("")
     setHrPhase("instruct")
+    console.log("[vitals] HR: instructing patient to place finger on sensor")
     speak("Place your finger on the sensor and hold still.")
     await new Promise((r) => setTimeout(r, 2500))
 
@@ -284,15 +303,18 @@ function VitalsInner() {
     }
 
     setHrPhase("measuring")
+    console.log("[vitals] HR: reading I2C sensor...")
     speak("Measuring now. Hold still.")
     try {
       const res = await fetch("/api/vitals/heartrate")
       if (!res.ok) throw new Error("Heart rate sensor unavailable")
       const data = await res.json()
       const hr = data.heart_rate
+      console.log(`[vitals] HR: result=${hr}bpm raw_adc=${data.raw_adc}`)
       setValues((prev) => ({ ...prev, heart_rate: hr }))
       speak(`Your heart rate is ${hr} beats per minute.`)
     } catch {
+      console.error("[vitals] HR: measurement failed")
       setHrErr("Heart rate measurement failed")
     } finally {
       setHrPhase("idle")
