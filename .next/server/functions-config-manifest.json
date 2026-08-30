@@ -1,10 +1,10 @@
 {
   "version": 1,
   "functions": {
-    "/api/printer/status": {},
-    "/api/vitals/o2": {},
-    "/api/camera/stream": {},
+    "/api/camera/capture": {},
     "/api/vitals/heartrate": {},
-    "/api/camera/capture": {}
+    "/api/camera/stream": {},
+    "/api/vitals/o2": {},
+    "/api/printer/status": {}
   }
 }
