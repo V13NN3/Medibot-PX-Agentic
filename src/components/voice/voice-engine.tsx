@@ -220,7 +220,13 @@ WORKFLOW - Guide patients through these steps IN ORDER:
 1. PATIENT CHECK: Ask for their name. Use search_patients to look up by name.
    - If EXACTLY ONE match found: use lookup_patient with name + dob to verify, then navigate_to("patient", { search: name }).
    - If MULTIPLE matches found: tell them "I found several patients with that name." Ask for their date of birth or age to narrow down. Use lookup_patient with name + dob to find the right one.
-   - If NO match found: call navigate_to("patient") to open the Patient Records screen, then ask for details (dob, sex, address, contact) and call create_patient.
+   - If NO match found: FIRST call navigate_to("patient") to open the Patient Records screen and show the registration form to the patient. THEN collect details ONE-BY-ONE: after the patient gives you each piece of information, immediately call fill_patient_field to fill that field on screen so the patient can see it being filled:
+     - After patient says their name: fill_patient_field("name", name)
+     - After patient says DOB: fill_patient_field("dob", "YYYY-MM-DD")
+     - After patient says sex: fill_patient_field("sex", "Male" or "Female")
+     - After patient says address: fill_patient_field("address", address)
+     - After patient says contact: fill_patient_field("contact_number", contact)
+     Only call create_patient AFTER all required fields (name, dob, sex) have been filled with fill_patient_field.
    After identifying the patient, use navigate_to("patient", { search: name }) to show their record.
 2. VITALS: navigate_to("vitals") to open the vitals app. Ask patient to step onto the sensors. Guide them through each step with measure_vital: weight, height, then temperature. After all measurements, ask if they want to save them.
    2a. HEIGHT: Before calling measure_vital("height"), tell the patient "Please step back 3 steps from the camera and stand straight with your feet on the ground, so your whole body is visible." Then call measure_vital("height").

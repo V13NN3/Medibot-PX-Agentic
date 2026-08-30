@@ -247,18 +247,16 @@ function PatientInner() {
 
   useEffect(() => {
     if (searchParams.get("new") !== "1") return
-    let draft: { form?: AiDraftForm; patient?: PatientDetail } | null = null
     try {
-      const raw = sessionStorage.getItem("ai-patient-draft")
-      if (raw) draft = JSON.parse(raw)
-      sessionStorage.removeItem("ai-patient-draft")
-    } catch {
-      draft = null
-    }
-    if (draft?.form && draft.patient) {
-      startAiFill(draft.form, draft.patient)
-    }
-  }, [searchParams, startAiFill])
+      const raw = sessionStorage.getItem("ai-patient-fields")
+      if (raw) {
+        const fields = JSON.parse(raw) as Record<string, string>
+        sessionStorage.removeItem("ai-patient-fields")
+        setNewForm((prev) => ({ ...prev, ...fields }))
+        setPageState("new-patient")
+      }
+    } catch { /* ignore */ }
+  }, [searchParams])
 
   useEffect(() => {
     const onFill = (e: Event) => {
@@ -274,6 +272,17 @@ function PatientInner() {
       aiTimers.current = []
     }
   }, [startAiFill])
+
+  useEffect(() => {
+    const onFieldFill = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { field?: string; value?: string } | undefined
+      if (!detail?.field || detail.value === undefined) return
+      setNewForm((prev) => ({ ...prev, [detail.field!]: detail.value! }))
+      setPageState("new-patient")
+    }
+    window.addEventListener("voice-fill-patient-field", onFieldFill)
+    return () => window.removeEventListener("voice-fill-patient-field", onFieldFill)
+  }, [])
 
   const selectPatient = (id: string) => {
     setSelectedId(id)

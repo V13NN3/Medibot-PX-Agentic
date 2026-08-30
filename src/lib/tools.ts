@@ -41,8 +41,24 @@ export const toolDefinitions = [
     },
   },
   {
+    name: "fill_patient_field",
+    description: "Fill a single field on the patient registration form in real-time. Use this to fill fields one-by-one as you collect information from the patient. Call navigate_to('patient') first to open the form, then call this for each piece of information the patient gives you.",
+    parameters: {
+      type: "object",
+      properties: {
+        field: {
+          type: "string",
+          enum: ["name", "dob", "sex", "address", "contact_number"],
+          description: "Which field to fill",
+        },
+        value: { type: "string", description: "The value to fill in the field" },
+      },
+      required: ["field", "value"],
+    },
+  },
+  {
     name: "create_patient",
-    description: "Register a new patient",
+    description: "Save the patient record to the database. Call this ONLY after all required fields (name, dob, sex) have been filled using fill_patient_field.",
     parameters: {
       type: "object",
       properties: {
@@ -173,14 +189,29 @@ export const toolHandlers: Record<string, ToolHandler> = {
     return JSON.stringify(data)
   },
 
+  fill_patient_field: async (args) => {
+    const field = String(args.field || "")
+    const value = String(args.value || "")
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.sessionStorage.getItem("ai-patient-fields")
+        const fields = raw ? JSON.parse(raw) : {}
+        fields[field] = value
+        window.sessionStorage.setItem("ai-patient-fields", JSON.stringify(fields))
+      } catch { /* ignore */ }
+      window.dispatchEvent(
+        new CustomEvent("voice-fill-patient-field", {
+          detail: { field, value },
+        }),
+      )
+    }
+    return JSON.stringify({ filled: true, field, value })
+  },
+
   create_patient: async (args) => {
     const data = await apiPost("/api/patient/create", args)
-    if (typeof window !== "undefined" && data.patient) {
-      try {
-        sessionStorage.setItem("ai-patient-draft", JSON.stringify({ form: args, patient: data.patient }))
-      } catch {
-        /* ignore */
-      }
+    if (typeof window !== "undefined") {
+      try { window.sessionStorage.removeItem("ai-patient-fields") } catch { /* ignore */ }
       window.dispatchEvent(
         new CustomEvent("voice-create-patient", {
           detail: { patient: data.patient, form: args },
