@@ -3,10 +3,10 @@
   "functions": {
     "/api/camera/analyze": {},
     "/api/camera/capture": {},
-    "/api/camera/stream": {},
-    "/api/camera/release": {},
-    "/api/printer/status": {},
     "/api/vitals/heartrate": {},
-    "/api/vitals/o2": {}
+    "/api/vitals/o2": {},
+    "/api/camera/stream": {},
+    "/api/printer/status": {},
+    "/api/camera/release": {}
   }
 }
