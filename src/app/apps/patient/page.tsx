@@ -66,11 +66,13 @@ function PatientInner() {
   const [vitalsHistory, setVitalsHistory] = useState<VitalsRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [newForm, setNewForm] = useState({ name: "", dob: "", sex: "Male", address: "", contact_number: "", photo: "" })
+  const [dobYear, setDobYear] = useState("")
+  const [dobMonth, setDobMonth] = useState("")
+  const [dobDay, setDobDay] = useState("")
   const [facePhase, setFacePhase] = useState<"idle" | "instruct" | "countdown" | "capturing">("idle")
   const [faceCount, setFaceCount] = useState(3)
   const [faceErr, setFaceErr] = useState("")
   const faceVideoRef = useRef<HTMLVideoElement>(null)
-  const faceImgRef = useRef<HTMLImageElement>(null)
   const faceStreamRef = useRef<MediaStream | null>(null)
   const [piCamera, setPiCamera] = useState<boolean | null>(null)
 
@@ -119,6 +121,10 @@ function PatientInner() {
       speak("Look at the camera and hold still.")
       setFacePhase("idle")
       await new Promise((r) => setTimeout(r, 1500))
+      try {
+        await fetch("/api/camera/release", { method: "POST" })
+      } catch {}
+      await new Promise((r) => setTimeout(r, 2000))
       try {
         setFacePhase("capturing")
         const base64 = await captureStillFrame("/api/camera/capture")
@@ -344,6 +350,9 @@ function PatientInner() {
         setVitalsHistory([])
         setPageState("detail")
         setNewForm({ name: "", dob: "", sex: "Male", address: "", contact_number: "", photo: "" })
+        setDobYear("")
+        setDobMonth("")
+        setDobDay("")
         loadRecords()
       }
     } catch {
@@ -374,14 +383,13 @@ function PatientInner() {
     return age
   }
 
-  const dobYear = newForm.dob ? Number(newForm.dob.slice(0, 4)) : 0
-  const dobMonth = newForm.dob ? Number(newForm.dob.slice(5, 7)) : 0
-  const dobDay = newForm.dob ? Number(newForm.dob.slice(8, 10)) : 0
-
   const setDobPart = (part: "year" | "month" | "day", value: string) => {
-    const y = part === "year" ? value : dobYear ? String(dobYear) : ""
-    const m = part === "month" ? value : dobMonth ? String(dobMonth) : ""
-    const d = part === "day" ? value : dobDay ? String(dobDay) : ""
+    const y = part === "year" ? value : dobYear
+    const m = part === "month" ? value : dobMonth
+    const d = part === "day" ? value : dobDay
+    if (part === "year") setDobYear(value)
+    if (part === "month") setDobMonth(value)
+    if (part === "day") setDobDay(value)
     const dim = m ? new Date(Number(y || 2000), Number(m), 0).getDate() : 31
     const dd = d && Number(d) <= dim ? d : ""
     const dob = y && m && dd ? `${y}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}` : ""
@@ -479,7 +487,12 @@ function PatientInner() {
           {(facePhase === "instruct" || facePhase === "countdown") && (
             <div className="rounded-xl overflow-hidden bg-black border border-gray-200">
               {piCamera ? (
-                <img ref={faceImgRef} src="/api/camera/stream" alt="Pi camera" className="w-full max-h-48 object-cover" />
+                <div className="w-full h-48 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" />
+                  </svg>
+                </div>
               ) : (
                 <video ref={faceVideoRef} autoPlay playsInline muted className="w-full max-h-48 object-cover" />
               )}
@@ -539,25 +552,25 @@ function PatientInner() {
                 </select>
               ) : field === "dob" ? (
                 <div className="flex gap-1.5 mt-0.5">
-                  <select value={dobYear ? String(dobYear) : ""} onChange={(e) => setDobPart("year", e.target.value)}
+                  <select value={dobYear} onChange={(e) => setDobPart("year", e.target.value)}
                     className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm">
                     <option value="">Year</option>
                     {Array.from({ length: CURRENT_YEAR - 1919 }, (_, i) => CURRENT_YEAR - i).map((y) => (
-                      <option key={y} value={y}>{y}</option>
+                      <option key={y} value={String(y)}>{y}</option>
                     ))}
                   </select>
-                  <select value={dobMonth ? String(dobMonth) : ""} onChange={(e) => setDobPart("month", e.target.value)}
+                  <select value={dobMonth} onChange={(e) => setDobPart("month", e.target.value)}
                     className="w-24 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm">
                     <option value="">Month</option>
                     {MONTHS.map((m, i) => (
-                      <option key={m} value={i + 1}>{m}</option>
+                      <option key={m} value={String(i + 1)}>{m}</option>
                     ))}
                   </select>
-                  <select value={dobDay ? String(dobDay) : ""} onChange={(e) => setDobPart("day", e.target.value)}
+                  <select value={dobDay} onChange={(e) => setDobPart("day", e.target.value)}
                     className="w-20 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm">
                     <option value="">Day</option>
-                    {Array.from({ length: dobMonth ? new Date(dobYear || 2000, dobMonth, 0).getDate() : 31 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>{d}</option>
+                    {Array.from({ length: dobMonth ? new Date(Number(dobYear) || 2000, Number(dobMonth), 0).getDate() : 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={String(d)}>{d}</option>
                     ))}
                   </select>
                 </div>
