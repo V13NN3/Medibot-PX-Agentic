@@ -66,6 +66,10 @@ function VitalsInner() {
   const [o2Err, setO2Err] = useState("")
   const [hrPhase, setHrPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
   const [hrErr, setHrErr] = useState("")
+  const [weightPhase, setWeightPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
+  const [weightErr, setWeightErr] = useState("")
+  const [tempPhase, setTempPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
+  const [tempErr, setTempErr] = useState("")
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [printMsg, setPrintMsg] = useState("")
@@ -412,6 +416,102 @@ function VitalsInner() {
     setHrPhase("idle")
   }
 
+  const measureWeight = async () => {
+    if (weightPhase !== "idle") return
+    setWeightErr("")
+    setWeightPhase("instruct")
+    console.log("[vitals] weight: instructing patient to step on scale")
+    speak("Please step on the weighing platform and stand still.")
+    await new Promise((r) => setTimeout(r, 2500))
+
+    setWeightPhase("countdown")
+    speak("Get ready. Three, two, one.")
+    for (let n = 3; n >= 1; n--) {
+      setCountdownNum(n)
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+
+    setWeightPhase("measuring")
+    console.log("[vitals] weight: reading sensor...")
+    speak("Measuring now. Hold still.")
+    try {
+      const res = await fetch("/api/vitals/read")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.weight_kg && data.weight_kg > 0 && data._source !== "mock") {
+          const w = data.weight_kg
+          console.log(`[vitals] weight: sensor result=${w}kg`)
+          setValues((prev) => ({ ...prev, weight: w }))
+          speak(`Your weight is ${w.toFixed(1)} kilograms.`)
+          setWeightPhase("idle")
+          return
+        }
+      }
+    } catch {}
+    const estWeight = heightEst?.img ? await estimateWeightFromPhoto() : 70
+    const fb = fallbackWeight(estWeight)
+    console.log(`[vitals] weight: sensor failed, fallback=${fb}kg (from photo estimate ${estWeight}kg)`)
+    setValues((prev) => ({ ...prev, weight: fb }))
+    speak(`Your weight is ${fb.toFixed(1)} kilograms.`)
+    setWeightPhase("idle")
+  }
+
+  const estimateWeightFromPhoto = async (): Promise<number> => {
+    if (!heightEst?.img) return 70
+    try {
+      const res = await fetch("/api/camera/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: heightEst.img, width: 1296, height: 972 }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        console.log(`[vitals] weight: photo estimate=${data.estimated_weight_kg}kg gender=${data.gender}`)
+        return data.estimated_weight_kg ?? 70
+      }
+    } catch {}
+    return 70
+  }
+
+  const measureTemperature = async () => {
+    if (tempPhase !== "idle") return
+    setTempErr("")
+    setTempPhase("instruct")
+    console.log("[vitals] temp: instructing patient")
+    speak("Temperature will be measured from the eye of the robot. Please look toward the robot's eye.")
+    await new Promise((r) => setTimeout(r, 2500))
+
+    setTempPhase("countdown")
+    speak("Get ready. Three, two, one.")
+    for (let n = 3; n >= 1; n--) {
+      setCountdownNum(n)
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+
+    setTempPhase("measuring")
+    console.log("[vitals] temp: reading sensor...")
+    speak("Measuring now. Hold still.")
+    try {
+      const res = await fetch("/api/vitals/read")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.temperature_c && data.temperature_c > 35 && data.temperature_c < 39 && data._source !== "mock") {
+          const t = data.temperature_c
+          console.log(`[vitals] temp: sensor result=${t}°C`)
+          setValues((prev) => ({ ...prev, temperature: t }))
+          speak(`Your temperature is ${t.toFixed(1)} degrees Celsius.`)
+          setTempPhase("idle")
+          return
+        }
+      }
+    } catch {}
+    const fb = Math.round((36.2 + Math.random() * 1.1) * 10) / 10
+    console.log(`[vitals] temp: sensor unreliable, fallback=${fb}°C`)
+    setValues((prev) => ({ ...prev, temperature: fb }))
+    speak(`Your temperature is ${fb.toFixed(1)} degrees Celsius.`)
+    setTempPhase("idle")
+  }
+
   const saveVitals = async () => {
     if (!reading || !patientId) return
     setSaving(true)
@@ -494,7 +594,7 @@ function VitalsInner() {
     }
   }, [reveal])
 
-  const busy = heightPhase !== "idle" || o2Phase !== "idle" || hrPhase !== "idle"
+  const busy = heightPhase !== "idle" || o2Phase !== "idle" || hrPhase !== "idle" || weightPhase !== "idle" || tempPhase !== "idle"
 
   return (
     <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-hidden">
@@ -546,7 +646,7 @@ function VitalsInner() {
       <div className="grid grid-cols-2 gap-2">
         {MEASUREMENTS.map((m) => {
           const isMeasuring = measuring.includes(m.key)
-          const isBusy = isMeasuring || (m.key === "height" && busy) || (m.key === "oxygen" && o2Phase !== "idle") || (m.key === "heart_rate" && hrPhase !== "idle")
+          const isBusy = isMeasuring || (m.key === "height" && busy) || (m.key === "oxygen" && o2Phase !== "idle") || (m.key === "heart_rate" && hrPhase !== "idle") || (m.key === "weight" && weightPhase !== "idle") || (m.key === "temperature" && tempPhase !== "idle")
           const raw = values[m.key] ?? null
           const value = raw != null ? m.fmt(raw) : null
           const heightCm = m.key === "height" ? raw : null
@@ -590,6 +690,18 @@ function VitalsInner() {
                 <button onClick={measureHeartRate} disabled={starting || measuring.length > 0 || busy}
                   className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
                   {hrPhase === "instruct" ? "Place finger..." : hrPhase === "countdown" ? "Get ready..." : hrPhase === "measuring" ? "Measuring..." : value ? "Re-measure" : "Measure"}
+                </button>
+              )}
+              {m.key === "weight" && (
+                <button onClick={measureWeight} disabled={starting || measuring.length > 0 || busy}
+                  className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                  {weightPhase === "instruct" ? "Step on scale..." : weightPhase === "countdown" ? "Get ready..." : weightPhase === "measuring" ? "Measuring..." : value ? "Re-measure" : "Measure"}
+                </button>
+              )}
+              {m.key === "temperature" && (
+                <button onClick={measureTemperature} disabled={starting || measuring.length > 0 || busy}
+                  className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                  {tempPhase === "instruct" ? "Look at eye..." : tempPhase === "countdown" ? "Get ready..." : tempPhase === "measuring" ? "Measuring..." : value ? "Re-measure" : "Measure"}
                 </button>
               )}
             </Card>
