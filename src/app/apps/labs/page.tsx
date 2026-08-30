@@ -2,14 +2,15 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
-import { analysisRows } from "@/lib/mock-labs"
-import { getRangeStatus } from "@/lib/utils"
-import { fetchStreamFrame, captureStillFrame } from "@/lib/camera-utils"
+import { speak } from "@/lib/tts"
+import { captureStillFrame } from "@/lib/camera-utils"
 
 interface Interpretation {
   name: string
   value: string | number
   unit: string
+  referenceLow?: number
+  referenceHigh?: number
   status?: string
   note?: string
 }
@@ -21,30 +22,25 @@ interface InterpretResult {
   _source?: string
 }
 
-interface UploadedLab {
-  id: string
-  file_name: string
-  file_url: string
-  notes?: string
-  uploaded_at: string
-}
+type ScanPhase = "idle" | "instruct" | "countdown" | "capturing" | "review" | "analyzing"
 
 export default function LabsPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [uploadedLabs, setUploadedLabs] = useState<UploadedLab[]>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [captured, setCaptured] = useState<string | null>(null)
   const [cameraOn, setCameraOn] = useState(false)
-  const [interpreting, setInterpreting] = useState(false)
+  const [scanPhase, setScanPhase] = useState<ScanPhase>("idle")
+  const [countdownNum, setCountdownNum] = useState(3)
   const [interpretation, setInterpretation] = useState<InterpretResult | null>(null)
-  const [capturing, setCapturing] = useState(false)
   const [piCamera, setPiCamera] = useState<boolean | null>(null)
   const piStreamImgRef = useRef<HTMLImageElement>(null)
 
   useEffect(() => {
     setPiCamera(window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1")
   }, [])
+
+  const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
   const startCamera = useCallback(async () => {
     if (piCamera) {
@@ -76,79 +72,99 @@ export default function LabsPage() {
     return () => { stream?.getTracks().forEach((t) => t.stop()) }
   }, [stream])
 
-  useEffect(() => {
-    fetch("/api/appointments/list")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.appointments) {
-          setUploadedLabs([])
-        }
-      })
-      .catch(() => {})
-  }, [])
+  const runCountdown = async () => {
+    speak("Get ready. Three, two, one.")
+    for (let n = 3; n >= 1; n--) {
+      setCountdownNum(n)
+      await pause(1000)
+    }
+  }
 
-  useEffect(() => {
-    const handler = () => capturePhoto()
-    window.addEventListener("capture-lab-photo", handler)
-    return () => window.removeEventListener("capture-lab-photo", handler)
-  })
-
-  const capturePhoto = useCallback(async () => {
-    setCapturing(true)
-
-    let base64: string
-
+  const capturePhoto = useCallback(async (): Promise<string | null> => {
     if (piCamera) {
       setCameraOn(false)
-      await new Promise((r) => setTimeout(r, 1500))
+      await pause(1500)
       try {
-        base64 = await captureStillFrame("/api/camera/capture")
+        const base64 = await captureStillFrame("/api/camera/capture")
+        return base64
       } catch {
-        setCapturing(false)
-        return
+        return null
       }
     } else {
-      if (!videoRef.current || !canvasRef.current) { setCapturing(false); return }
+      if (!videoRef.current || !canvasRef.current) return null
       const video = videoRef.current
       const canvas = canvasRef.current
       canvas.width = video.videoWidth || 640
       canvas.height = video.videoHeight || 480
       const ctx = canvas.getContext("2d")
-      if (!ctx) { setCapturing(false); return }
+      if (!ctx) return null
       ctx.drawImage(video, 0, 0)
-      base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1]
+      return canvas.toDataURL("image/jpeg", 0.8).split(",")[1]
     }
+  }, [piCamera])
 
+  const handleScan = async () => {
+    if (scanPhase !== "idle") return
+    setInterpretation(null)
+    setCaptured(null)
+    setScanPhase("instruct")
+    console.log("[labs] scan: instructing user to place lab result")
+    speak("Please place your lab result document in front of the camera, facing it directly.")
+    await startCamera()
+    await pause(3000)
+
+    setScanPhase("countdown")
+    console.log("[labs] scan: countdown started")
+    await runCountdown()
+
+    setScanPhase("capturing")
+    console.log("[labs] scan: capturing photo...")
+    speak("Capturing now.")
+    const base64 = await capturePhoto()
+    if (!base64) {
+      console.error("[labs] scan: capture failed")
+      setScanPhase("idle")
+      speak("Capture failed. Please try again.")
+      return
+    }
+    console.log("[labs] scan: photo captured, showing review")
     setCaptured(base64)
-    setCapturing(false)
+    setScanPhase("review")
+    speak("Photo captured. Please review and submit or retake.")
+  }
 
-    await fetch("/api/labs/capture", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image_base64: base64 }),
-    })
-
-    setInterpreting(true)
+  const handleSubmit = async () => {
+    if (!captured) return
+    setScanPhase("analyzing")
+    console.log("[labs] scan: submitting to Grok vision for analysis...")
+    speak("Analyzing your lab results now.")
     try {
       const res = await fetch("/api/labs/interpret", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_base64: base64 }),
+        body: JSON.stringify({ image_base64: captured }),
       })
       const data = await res.json()
+      console.log("[labs] scan: analysis complete, results:", data.results?.length ?? 0, "items")
       setInterpretation(data)
+      speak("Analysis complete. Here are your results.")
     } catch {
-      setInterpretation({ summary: "Failed to interpret image." })
+      console.error("[labs] scan: analysis failed")
+      setInterpretation({ summary: "Failed to interpret lab results. Please try again." })
+      speak("Analysis failed. Please try again.")
     } finally {
-      setInterpreting(false)
+      setScanPhase("idle")
     }
-  }, [piCamera])
+  }
 
-  const outOfRange = analysisRows.filter(
-    (row) => getRangeStatus(row.value, row.referenceLow, row.referenceHigh) === "danger",
-  ).length
+  const handleRetake = () => {
+    console.log("[labs] scan: retaking photo")
+    setCaptured(null)
+    setInterpretation(null)
+    setScanPhase("idle")
+  }
 
-  const statusColor = {
+  const statusColor: Record<string, string> = {
     normal: "text-success",
     high: "text-danger",
     low: "text-warning",
@@ -158,129 +174,135 @@ export default function LabsPage() {
     <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-y-auto overflow-x-hidden">
       <div>
         <h2 className="text-lg font-semibold text-foreground">Lab Results</h2>
-        <p className="text-xs text-gray-500">View X-rays, blood tests, and other lab results</p>
+        <p className="text-xs text-gray-500">Scan and analyze lab results with AI</p>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-          Panel: Basic Metabolic
-        </span>
-        <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-          {outOfRange > 0 ? `${outOfRange} out of range` : "All in range"}
-        </span>
-      </div>
-
-      <Card padding="none" className="overflow-hidden">
-        <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Camera</p>
-        </div>
-        <div className="p-3 flex flex-col items-center gap-2">
-          {!cameraOn ? (
-            <button onClick={startCamera}
-              className="w-full py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors">
-              Open Camera
-            </button>
-          ) : (
-            <>
-              {piCamera ? (
-                <img ref={piStreamImgRef} src="/api/camera/stream" alt="Pi camera" className="w-full rounded-xl bg-black" />
-              ) : (
-                <video ref={videoRef} autoPlay playsInline muted
-                  className="w-full rounded-xl bg-black" />
-              )}
-              <canvas ref={canvasRef} className="hidden" />
-              <div className="flex gap-2 w-full">
-                <button onClick={capturePhoto} disabled={capturing || interpreting}
-                  className="flex-1 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors disabled:bg-gray-300">
-                  {capturing ? "Capturing..." : "📸 Capture Photo"}
-                </button>
-                <button onClick={stopCamera}
-                  className="px-4 py-2.5 rounded-xl bg-gray-200 dark:bg-gray-700 text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-                  Close
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </Card>
-
-      {captured && (
+      {scanPhase === "idle" && !captured && (
         <Card padding="none" className="overflow-hidden">
           <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Captured Image</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Camera</p>
           </div>
-          <div className="p-3">
-            <img src={`data:image/jpeg;base64,${captured}`} alt="Captured lab result"
-              className="w-full rounded-xl" />
+          <div className="p-3 flex flex-col items-center gap-2">
+            <button onClick={handleScan}
+              className="w-full py-3 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors">
+              Scan Lab Result
+            </button>
+            <p className="text-[11px] text-gray-400 text-center">Place your lab result in front of the robot camera</p>
           </div>
         </Card>
       )}
 
-      <Card padding="none" className="overflow-hidden">
-        <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Analysis Results</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase tracking-wider">
-                <th className="px-3 py-1.5 font-medium">Name</th>
-                <th className="px-3 py-1.5 font-medium text-right">Value</th>
-                <th className="px-3 py-1.5 font-medium text-right">Reference</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analysisRows.map((row) => {
-                const status = getRangeStatus(row.value, row.referenceLow, row.referenceHigh)
-                return (
-                  <tr key={row.id} className="border-t border-gray-50 dark:border-gray-800/60">
-                    <td className="px-3 py-1.5 text-gray-600 dark:text-gray-300">{row.name}</td>
-                    <td className={`px-3 py-1.5 text-right font-medium ${status === "normal" ? "text-foreground" : status === "warning" ? "text-warning" : "text-danger"}`}>
-                      {row.value} {row.unit}
-                    </td>
-                    <td className="px-3 py-1.5 text-right text-gray-400 whitespace-nowrap">
-                      {row.referenceLow}&ndash;{row.referenceHigh} {row.unit}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {(scanPhase === "instruct" || scanPhase === "countdown" || scanPhase === "capturing") && (
+        <Card padding="none" className="overflow-hidden">
+          <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Camera</p>
+          </div>
+          <div className="p-3 flex flex-col items-center gap-2">
+            {piCamera ? (
+              <img ref={piStreamImgRef} src="/api/camera/stream" alt="Pi camera" className="w-full rounded-xl bg-black" />
+            ) : (
+              <video ref={videoRef} autoPlay playsInline muted
+                className="w-full rounded-xl bg-black" />
+            )}
+            <canvas ref={canvasRef} className="hidden" />
+            {scanPhase === "instruct" && (
+              <div className="w-full rounded-xl bg-amber-50 border border-amber-300 p-3 text-center">
+                <p className="text-sm font-bold text-amber-900">Place the lab result document in front of the camera</p>
+                <p className="text-xs text-amber-700 mt-1">Facing it directly, make sure all text is visible...</p>
+              </div>
+            )}
+            {scanPhase === "countdown" && (
+              <div className="w-full rounded-xl bg-primary/10 border border-primary/30 p-3 text-center">
+                <p className="text-3xl font-bold text-primary">{countdownNum}</p>
+                <p className="text-xs text-primary/70 mt-1">Hold still...</p>
+              </div>
+            )}
+            {scanPhase === "capturing" && (
+              <div className="w-full rounded-xl bg-gray-100 p-3 text-center">
+                <span className="inline-block w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <p className="text-xs text-gray-500 mt-1">Capturing...</p>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
-      {interpreting && (
+      {scanPhase === "review" && captured && (
+        <Card padding="none" className="overflow-hidden">
+          <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Review Captured Image</p>
+          </div>
+          <div className="p-3 flex flex-col gap-2">
+            <img src={`data:image/jpeg;base64,${captured}`} alt="Captured lab result"
+              className="w-full rounded-xl" />
+            <div className="flex gap-2">
+              <button onClick={handleSubmit}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition-colors">
+                Submit for Analysis
+              </button>
+              <button onClick={handleRetake}
+                className="flex-1 py-2.5 rounded-xl bg-gray-200 dark:bg-gray-700 text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                Retake
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {scanPhase === "analyzing" && (
         <Card padding="md" className="text-center py-2">
-          <p className="text-sm text-gray-500">AI is analyzing your lab results...</p>
+          <div className="flex items-center justify-center gap-2">
+            <span className="inline-block w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <p className="text-sm text-gray-500">AI is analyzing your lab results...</p>
+          </div>
         </Card>
       )}
 
       {interpretation && (
-        <Card padding="md" className="flex flex-col gap-2 py-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">AI Interpretation</p>
-
-          {interpretation.results && interpretation.results.length > 0 && (
-            <div className="divide-y divide-gray-50 dark:divide-gray-800/60">
-              {interpretation.results.map((r, i) => (
-                <div key={i} className="flex items-center justify-between py-1 text-sm">
-                  <span className="text-gray-600 dark:text-gray-300">{r.name}</span>
-                  <span className={`font-medium ${r.status ? statusColor[r.status as keyof typeof statusColor] || "text-foreground" : "text-foreground"}`}>
-                    {r.value} {r.unit}
-                  </span>
-                </div>
-              ))}
+        <Card padding="none" className="overflow-hidden">
+          <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">AI Interpretation</p>
+          </div>
+          <div className="overflow-x-auto">
+            {interpretation.results && interpretation.results.length > 0 && (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 py-1.5 font-medium">Name</th>
+                    <th className="px-3 py-1.5 font-medium text-right">Value</th>
+                    <th className="px-3 py-1.5 font-medium text-right">Reference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {interpretation.results.map((r, i) => (
+                    <tr key={i} className="border-t border-gray-50 dark:border-gray-800/60">
+                      <td className="px-3 py-1.5 text-gray-600 dark:text-gray-300">{r.name}</td>
+                      <td className={`px-3 py-1.5 text-right font-medium ${r.status ? statusColor[r.status] || "text-foreground" : "text-foreground"}`}>
+                        {r.value} {r.unit}
+                      </td>
+                      <td className="px-3 py-1.5 text-right text-gray-400 whitespace-nowrap">
+                        {r.referenceLow != null && r.referenceHigh != null
+                          ? `${r.referenceLow}–${r.referenceHigh} ${r.unit}`
+                          : r.unit}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          {interpretation.summary && (
+            <div className="px-3 pb-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-xl p-2.5">
+                {interpretation.summary}
+              </p>
             </div>
           )}
-
-          {interpretation.summary && (
-            <p className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-xl p-2.5">
-              {interpretation.summary}
-            </p>
-          )}
-
-          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-2.5 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
-            <span>⚕️</span>
-            <p>I&apos;m an AI assistant, not a doctor. This information is for reference only. Please consult a qualified healthcare professional for proper diagnosis and treatment.</p>
+          <div className="px-3 pb-3">
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-2.5 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+              <span>⚕️</span>
+              <p>I&apos;m an AI assistant, not a doctor. This information is for reference only. Please consult a qualified healthcare professional for proper diagnosis and treatment.</p>
+            </div>
           </div>
         </Card>
       )}
