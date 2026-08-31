@@ -80,6 +80,7 @@ function VitalsInner() {
   const [weightErr, setWeightErr] = useState("")
   const [tempPhase, setTempPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
   const [tempErr, setTempErr] = useState("")
+  const [bmiMeasuring, setBmiMeasuring] = useState(false)
   const [videoSrc, setVideoSrc] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [imgSrc, setImgSrc] = useState<string | null>(null)
@@ -618,7 +619,30 @@ function VitalsInner() {
     }
   }, [reveal])
 
-  const busy = heightPhase !== "idle" || pulsePhase !== "idle" || weightPhase !== "idle" || tempPhase !== "idle"
+  const busy = heightPhase !== "idle" || pulsePhase !== "idle" || weightPhase !== "idle" || tempPhase !== "idle" || bmiMeasuring
+
+  const measureBMI = async () => {
+    if (bmiMeasuring) return
+    if (busy) return
+    setBmiMeasuring(true)
+    setError("")
+    setHeightErr("")
+    setWeightErr("")
+
+    const hasHeight = (values.height ?? 0) > 0
+    const hasWeight = (values.weight ?? 0) > 0
+
+    if (!hasHeight) {
+      const est = await measureHeight()
+      if (est) await pause(2000)
+    }
+
+    if (!hasWeight) {
+      await measureWeight()
+    }
+
+    setBmiMeasuring(false)
+  }
 
   return (
     <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-hidden">
@@ -749,6 +773,10 @@ function VitalsInner() {
               ) : (
                 <p className="text-sm text-gray-400">--</p>
               )}
+              <button onClick={measureBMI} disabled={busy}
+                className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
+                {bmiMeasuring ? "Measuring..." : bmiResult ? "Re-measure" : "Measure"}
+              </button>
             </Card>
           )
         })()}
