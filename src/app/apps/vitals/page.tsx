@@ -83,6 +83,7 @@ function VitalsInner() {
   const [videoSrc, setVideoSrc] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [imgSrc, setImgSrc] = useState<string | null>(null)
+  const [previewLabel, setPreviewLabel] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [printMsg, setPrintMsg] = useState("")
@@ -103,24 +104,28 @@ function VitalsInner() {
 
   const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
-  const playVideoAsync = (src: string, durationMs: number) =>
+  const playVideoAsync = (src: string, durationMs: number, label?: string) =>
     new Promise<void>((resolve) => {
-      console.log("[vitals] showing video:", src, "for", durationMs, "ms")
+      console.log("[vitals] showing video:", src, "for", durationMs, "ms", label ? `(${label})` : "")
+      setPreviewLabel(label ?? null)
       setVideoSrc(src)
       setTimeout(() => {
         console.log("[vitals] video done:", src)
         setVideoSrc(null)
+        setPreviewLabel(null)
         resolve()
       }, durationMs)
     })
 
-  const showImage = (src: string, durationMs: number) =>
+  const showImage = (src: string, durationMs: number, label?: string) =>
     new Promise<void>((resolve) => {
-      console.log("[vitals] showing image:", src, "for", durationMs, "ms")
+      console.log("[vitals] showing image:", src, "for", durationMs, "ms", label ? `(${label})` : "")
+      setPreviewLabel(label ?? null)
       setImgSrc(src)
       setTimeout(() => {
         console.log("[vitals] image display done:", src)
         setImgSrc(null)
+        setPreviewLabel(null)
         resolve()
       }, durationMs)
     })
@@ -235,7 +240,7 @@ function VitalsInner() {
     } else {
       est = await measureHeight()
     }
-    await pause(2000)
+    await pause(3000)
 
     let photoAnalysis: PhotoAnalysis | null = null
     if (est?.img) {
@@ -268,10 +273,10 @@ function VitalsInner() {
       console.log("[vitals] weight from photo estimate:", weightVal, "(gender:", gender, ")")
     }
     await runStep("weight", weightVal)
-    await pause(2000)
+    await pause(3000)
 
     await runStep("temperature", manualOverrides.temperature ?? sensor.temperature_c)
-    await pause(2000)
+    await pause(3000)
 
     const o2Override = manualOverrides.oxygen
     const hrOverride = manualOverrides.heart_rate
@@ -325,7 +330,7 @@ function VitalsInner() {
     if (heightPhase === "instruct" || heightPhase === "countdown" || heightPhase === "measuring") return null
     setHeightErr("")
     setHeightPhase("instruct")
-    showImage("/height-guide.png", 4000)
+    showImage("/height-guide.png", 4000, "Measured from robot's camera")
     speak("Step back 3 steps.")
     await pause(4000)
 
@@ -370,7 +375,7 @@ function VitalsInner() {
     if (pulsePhase !== "idle") return
     setPulseErr("")
     setPulsePhase("instruct")
-    playVideoAsync("/bloodoxygen.mp4", 4000)
+    playVideoAsync("/bloodoxygen.mp4", 4000, "Measured from robot's mouth")
     speak("Finger on robot's mouth.")
     await pause(4000)
 
@@ -409,7 +414,7 @@ function VitalsInner() {
     if (weightPhase !== "idle") return
     setWeightErr("")
     setWeightPhase("instruct")
-    playVideoAsync("/weight.mp4", 4000)
+    playVideoAsync("/weight.mp4", 4000, "Measured from the platform")
     speak("Step on scale.")
     await pause(4000)
 
@@ -422,7 +427,6 @@ function VitalsInner() {
 
     setWeightPhase("measuring")
     console.log("[vitals] weight: reading sensor...")
-    speak("Measuring now. Hold still.")
     try {
       const res = await fetch("/api/vitals/read")
       if (res.ok) {
@@ -466,7 +470,7 @@ function VitalsInner() {
     if (tempPhase !== "idle") return
     setTempErr("")
     setTempPhase("instruct")
-    playVideoAsync("/temperature.mp4", 4000)
+    playVideoAsync("/temperature.mp4", 4000, "Measured from robot's eye")
     speak("Look at robot's eye.")
     await pause(4000)
 
@@ -479,7 +483,6 @@ function VitalsInner() {
 
     setTempPhase("measuring")
     console.log("[vitals] temp: reading sensor...")
-    speak("Measuring now. Hold still.")
     try {
       const res = await fetch("/api/vitals/read")
       if (res.ok) {
@@ -791,15 +794,25 @@ function VitalsInner() {
       <CountdownOverlay number={countdownNum} show={heightPhase === "countdown" || pulsePhase === "countup" || globalCountdown} />
 
       {videoSrc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
           <video ref={videoRef} src={videoSrc} muted playsInline
             className="max-w-full max-h-full rounded-2xl shadow-2xl" />
+          {previewLabel && (
+            <p className="absolute bottom-8 text-lg font-semibold text-white/90 bg-black/50 px-5 py-2.5 rounded-full backdrop-blur-sm">
+              {previewLabel}
+            </p>
+          )}
         </div>
       )}
 
       {imgSrc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
           <img src={imgSrc} className="max-w-full max-h-full rounded-2xl shadow-2xl" />
+          {previewLabel && (
+            <p className="absolute bottom-8 text-lg font-semibold text-white/90 bg-black/50 px-5 py-2.5 rounded-full backdrop-blur-sm">
+              {previewLabel}
+            </p>
+          )}
         </div>
       )}
     </div>
