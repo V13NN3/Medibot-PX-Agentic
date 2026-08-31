@@ -1,8 +1,8 @@
 {
   "version": 1,
   "functions": {
-    "/api/camera/capture": {},
     "/api/camera/analyze": {},
+    "/api/camera/capture": {},
     "/api/camera/release": {},
     "/api/camera/stream": {},
     "/api/printer/status": {},
