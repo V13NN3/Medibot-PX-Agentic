@@ -66,8 +66,32 @@ async function askVision(imageBase64: string, width: number, height: number, mod
     throw new Error("GROK_VISION_API_KEY not set")
   }
 
-  const elevation = process.env.CAMERA_ELEVATION_CM || "133"
+  const elevation = process.env.CAMERA_ELEVATION_CM || "150"
   const dataUrl = `data:image/jpeg;base64,${imageBase64}`
+
+  const prompt = `A fixed camera is mounted exactly ${elevation} cm above ground level on a robot.
+A person stood approximately 3 steps (~2.5 meters) away from the camera, facing it directly, standing upright with feet on the ground.
+The image is ${width}x${height} pixels.
+
+TASK: Estimate the person's height in centimeters by analyzing their proportions in the image.
+
+APPROACH:
+1. Identify the top of the person's head and the bottom of their feet in the image.
+2. Calculate what percentage of the image height the person occupies.
+3. Use the known camera elevation (${elevation} cm) and approximate distance (2.5 m) to convert pixel height to real-world height.
+4. Consider the camera's field of view and angle — the camera is at ${elevation} cm, so if the person appears shorter than the camera height in the image, they are farther away or shorter than ${elevation} cm.
+5. A typical adult is between 150-190 cm. Use body proportions (head-to-body ratio is roughly 1:7 for adults) as a sanity check.
+
+Respond with valid JSON only, in exactly this shape:
+{"height_cm": <number 100-220>, "confidence": <integer 1-100>}
+
+Confidence guide:
+- 80-100: Full body clearly visible, feet and head both in frame, good lighting
+- 50-79: Most of body visible, minor obstruction or blur
+- 20-49: Partial view, heavy blur, or poor lighting
+- 1-19: Very uncertain, making best guess from available clues
+
+Do NOT default to any specific number. Always attempt your best estimate based on the visual evidence.`
 
   const response = await fetch(XAI_API_URL, {
     method: "POST",
@@ -81,18 +105,12 @@ async function askVision(imageBase64: string, width: number, height: number, mod
         {
           role: "user",
           content: [
-            {
-              type: "text",
-              text: `A fixed camera is mounted at ${elevation} cm above ground level. A person stood about 3 steps (~2.5 m) away from the camera, facing it, standing upright with their feet on the ground. The full body is in frame and the feet are near the bottom of the image. The image is ${width}x${height} pixels. Estimate the person's height in centimeters. Respond with valid JSON only, in exactly this shape: {"height_cm": <number 60-230>, "confidence": <integer 0-100>}. If you cannot estimate, use confidence 0 and height_cm 170.`,
-            },
-            {
-              type: "image_url",
-              image_url: { url: dataUrl },
-            },
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: dataUrl } },
           ],
         },
       ],
-      max_tokens: 200,
+      max_tokens: 300,
       temperature: 0.1,
     }),
   })
@@ -105,20 +123,33 @@ async function askVision(imageBase64: string, width: number, height: number, mod
 
   const data = await response.json()
   const content = data.choices?.[0]?.message?.content || ""
+  console.log(`[camera] raw Grok response (model=${model}):`, content)
 
   let parsed: { height_cm?: number; confidence?: number } = {}
   try {
     parsed = JSON.parse(content)
   } catch {
-    const match = content.match(/(\d+(?:\.\d+)?)/)
-    if (match) parsed = { height_cm: parseFloat(match[1]) }
+    const match = content.match(/\{[^}]*"height_cm"[^}]*\}/)
+    if (match) {
+      try { parsed = JSON.parse(match[0]) } catch { /* ignore */ }
+    }
+    if (!parsed.height_cm) {
+      const numMatch = content.match(/height_cm["\s:]*(\d+(?:\.\d+)?)/i)
+      if (numMatch) parsed = { height_cm: parseFloat(numMatch[1]), confidence: 30 }
+    }
   }
 
+  console.log("[camera] parsed height:", parsed)
+
   const heightCm = Number(parsed.height_cm)
-  const clamped = Number.isFinite(heightCm) ? Math.min(230, Math.max(60, heightCm)) : 170
+  const clamped = Number.isFinite(heightCm) ? Math.min(220, Math.max(100, heightCm)) : null
+  if (clamped === null) {
+    console.warn("[camera] could not parse height from response, returning null")
+    return { height_cm: 0, confidence: 0 }
+  }
   const confidence = Number.isFinite(Number(parsed.confidence))
-    ? Math.min(100, Math.max(0, Math.round(Number(parsed.confidence))))
-    : 50
+    ? Math.min(100, Math.max(1, Math.round(Number(parsed.confidence))))
+    : 20
 
   console.log(`[camera] height estimate: ${clamped} cm (confidence ${confidence})`)
   return { height_cm: clamped, confidence }
@@ -129,22 +160,38 @@ export async function estimateHeightFromImage(
   width: number,
   height: number,
 ): Promise<HeightEstimate> {
-  let result: { height_cm: number; confidence: number } | null = null
+  let bestResult: { height_cm: number; confidence: number } | null = null
   let lastErr: unknown = null
+
   for (const model of visionModelCandidates()) {
-    try {
-      result = await askVision(imageBase64, width, height, model)
-      break
-    } catch (err) {
-      lastErr = err
-      const msg = err instanceof Error ? err.message : String(err)
-      if (!msg.includes("400") && !msg.includes("Model not found")) break
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const result = await askVision(imageBase64, width, height, model)
+        console.log(`[camera] model=${model} attempt=${attempt + 1} → ${result.height_cm}cm (confidence ${result.confidence})`)
+        if (result.height_cm === 0) continue
+        if (!bestResult || result.confidence > bestResult.confidence) {
+          bestResult = result
+        }
+        if (result.confidence >= 50) break
+      } catch (err) {
+        lastErr = err
+        const msg = err instanceof Error ? err.message : String(err)
+        console.warn(`[camera] model=${model} attempt=${attempt + 1} failed:`, msg)
+        if (!msg.includes("400") && !msg.includes("Model not found")) break
+      }
     }
+    if (bestResult && bestResult.confidence >= 50) break
   }
-  if (!result) throw lastErr || new Error("all vision models failed")
+
+  if (!bestResult || bestResult.height_cm === 0) {
+    console.warn("[camera] all height estimation attempts failed or returned 0")
+    throw lastErr || new Error("all vision models failed")
+  }
+
+  console.log(`[camera] best height result: ${bestResult.height_cm}cm (confidence ${bestResult.confidence})`)
   return {
-    height_cm: result.height_cm,
-    confidence: result.confidence,
+    height_cm: bestResult.height_cm,
+    confidence: bestResult.confidence,
     _source: "vision-ai",
     image_base64: imageBase64,
   }
@@ -155,12 +202,13 @@ export async function estimateHeight(): Promise<HeightEstimate> {
     const shot = await captureStill()
     if (!shot) {
       console.warn("[camera] no capture, returning mock height")
-      return { height_cm: 172, confidence: 0, _source: "mock" }
+      return { height_cm: 0, confidence: 0, _source: "no-capture" }
     }
+    console.log(`[camera] captured photo: ${shot.width}x${shot.height}, ${(shot.base64.length / 1024).toFixed(0)}KB`)
     return await estimateHeightFromImage(shot.base64, shot.width, shot.height)
   } catch (err) {
     console.error("[camera] height estimation failed:", err)
-    return { height_cm: 172, confidence: 0, _source: "mock" }
+    return { height_cm: 0, confidence: 0, _source: "error" }
   }
 }
 

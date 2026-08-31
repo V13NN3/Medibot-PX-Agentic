@@ -360,7 +360,10 @@ function VitalsInner() {
       const res = await fetch("/api/vitals/height", { method: "POST" })
       if (!res.ok) throw new Error("Height API failed")
       const data = await res.json()
-      const cm = data.height_cm ?? 172
+      if (!data.height_cm || data.height_cm <= 0) {
+        throw new Error("Could not estimate height from image")
+      }
+      const cm = data.height_cm
       const img = data.image_base64 ?? ""
       const confidence = data.confidence ?? 0
       console.log(`[vitals] height: estimate=${cm}cm confidence=${confidence}% source=${data._source}`)
