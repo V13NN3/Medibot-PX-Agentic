@@ -276,11 +276,13 @@ function VitalsInner() {
       weightVal = fallbackWeight(estimatedWeight)
       console.log("[vitals] weight from photo estimate:", weightVal, "(gender:", gender, ")")
     }
+    playVideoAsync("/weight.mp4", 4000, "Step on the platform")
     await runStep("weight", weightVal)
-    await pause(3000)
+    await pause(2000)
 
+    playVideoAsync("/temperature.mp4", 4000, "Look at the robot's eye")
     await runStep("temperature", manualOverrides.temperature ?? fallbackTemp())
-    await pause(3000)
+    await pause(2000)
 
     const o2Override = manualOverrides.oxygen
     const hrOverride = manualOverrides.heart_rate
@@ -300,7 +302,10 @@ function VitalsInner() {
       o2Val = pulse.o2
       hrVal = pulse.hr
     }
+    playVideoAsync("/bloodoxygen.mp4", 4000, "Put finger on robot's mouth")
     await runStep("oxygen", o2Val)
+    await pause(1000)
+    playVideoAsync("/heartrate.mp4", 4000, "Checking heart rate")
     await runStep("heart_rate", hrVal)
 
     setReading({
@@ -639,16 +644,43 @@ function VitalsInner() {
     const hasHeight = (values.height ?? 0) > 0
     const hasWeight = (values.weight ?? 0) > 0
 
-    if (!hasHeight) {
-      const est = await measureHeight()
-      if (est) await pause(2000)
+    let heightCm = values.height ?? 0
+    let weightKg = values.weight ?? 0
+
+    if (!hasHeight || !hasWeight) {
+      try {
+        const res = await fetch("/api/vitals/read")
+        const sensor = await res.json()
+        if (!hasHeight && sensor.height_cm > 0) heightCm = sensor.height_cm
+        if (!hasWeight && sensor.weight_kg > 0) weightKg = sensor.weight_kg
+      } catch {}
     }
 
-    if (!hasWeight) {
-      await measureWeight()
+    if (!hasHeight && heightEst?.cm) heightCm = heightEst.cm
+
+    if (!hasHeight && heightCm <= 0) {
+      const est = await measureHeight()
+      if (est) heightCm = est.cm
+    }
+    if (!hasWeight && weightKg <= 0) {
+      const w = await readWeightFromSensor()
+      if (w > 0) weightKg = w
+    }
+
+    if (heightCm > 0 && weightKg > 0) {
+      setValues((prev) => ({ ...prev, height: heightCm, weight: weightKg }))
     }
 
     setBmiMeasuring(false)
+  }
+
+  const readWeightFromSensor = async (): Promise<number> => {
+    try {
+      const res = await fetch("/api/vitals/read")
+      const sensor = await res.json()
+      if (sensor.weight_kg > 0) return sensor.weight_kg
+    } catch {}
+    return 0
   }
 
   return (
