@@ -333,7 +333,7 @@ function VitalsInner() {
     setHeightErr("")
 
     setHeightPhase("instruct")
-    showImage("/height-guide.png", 4000, "Move 3 steps back")
+    playVideoAsync("/height.mp4", 4000, "Move 3 steps back")
     speak("Move 3 steps back.")
     await pause(4000)
 
@@ -385,9 +385,10 @@ function VitalsInner() {
   const measurePulse = async () => {
     if (pulsePhase !== "idle") return
     setPulseErr("")
+
     setPulsePhase("instruct")
     playVideoAsync("/bloodoxygen.mp4", 4000, "Put finger on robot's mouth")
-    speak("Put finger on robot's mouth.")
+    speak("Put finger on robot's mouth for oxygen.")
     await pause(4000)
 
     setPulsePhase("countup")
@@ -418,9 +419,15 @@ function VitalsInner() {
       console.log(`[vitals] pulse: using fallback HR=${hrVal}bpm gender=${detectedGender}`)
     }
 
-    console.log(`[vitals] pulse: final O2=${o2Val.toFixed(1)}% HR=${hrVal}bpm`)
-    setValues((prev) => ({ ...prev, oxygen: o2Val, heart_rate: hrVal }))
-    speak(`Oxygen ${o2Val.toFixed(0)} percent. Heart rate ${hrVal}.`)
+    setValues((prev) => ({ ...prev, oxygen: o2Val }))
+    speak(`Oxygen ${o2Val.toFixed(0)} percent.`)
+
+    playVideoAsync("/heartrate.mp4", 4000, "Checking heart rate")
+    speak("Checking heart rate.")
+    await pause(4000)
+
+    setValues((prev) => ({ ...prev, heart_rate: hrVal }))
+    speak(`Heart rate ${hrVal}.`)
     setPulsePhase("idle")
   }
 

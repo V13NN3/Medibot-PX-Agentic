@@ -24,8 +24,8 @@ const SILENCE_FRAMES_MAX = 10
 const NO_RESPONSE_TIMEOUT = 5000
 
 const TRANSCRIPT_APP_MAP: Array<{ keywords: string[]; app: string }> = [
-  { keywords: ["register", "registration", "new patient", "sign up", "enroll", "patient record"], app: "patient" },
-  { keywords: ["vitals", "weight", "height", "temperature", "blood pressure", "measure"], app: "vitals" },
+  { keywords: ["register", "registration", "new patient", "sign up", "enroll", "patient record", "patient"], app: "patient" },
+  { keywords: ["vitals", "weight", "height", "temperature", "blood pressure", "measure", "oxygen", "heart rate", "pulse"], app: "vitals" },
   { keywords: ["lab", "x-ray", "xray", "scan", "results", "blood test"], app: "labs" },
   { keywords: ["find doctor", "doctor", "specialist", "physician"], app: "find-doctor" },
   { keywords: ["appointment", "schedule", "book", "booking"], app: "appointment" },
@@ -418,6 +418,14 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
 
         if (msg.type === "response.audio_transcript.delta") {
           audioTranscriptRef.current += msg.delta || ""
+          if (!navigateCalledRef.current) {
+            const partial = audioTranscriptRef.current.toLowerCase()
+            const app = matchAppFromTranscript(partial)
+            if (app) {
+              console.log("[voice] transcript matches app mid-speech:", app)
+              openApp(app)
+            }
+          }
           return
         }
 
@@ -430,10 +438,10 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
         if (msg.type === "response.done") {
           console.log("[voice] response.done")
           const transcript = audioTranscriptRef.current.toLowerCase()
-          if (transcript && !navigateCalledRef.current) {
+          if (!navigateCalledRef.current) {
             const app = matchAppFromTranscript(transcript)
             if (app) {
-              console.log("[voice] auto-opening overlay from transcript:", app)
+              console.log("[voice] final transcript fallback — opening:", app)
               openApp(app)
             }
           }

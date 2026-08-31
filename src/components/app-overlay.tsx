@@ -4,16 +4,27 @@ import { useEffect } from "react"
 import dynamic from "next/dynamic"
 import { useAppOverlay } from "@/contexts/app-overlay-context"
 
-const PatientApp = dynamic(() => import("@/app/apps/patient/page"), { ssr: false })
-const VitalsApp = dynamic(() => import("@/app/apps/vitals/page"), { ssr: false })
-const LabsApp = dynamic(() => import("@/app/apps/labs/page"), { ssr: false })
-const DiagnosticsApp = dynamic(() => import("@/app/apps/diagnostics/page"), { ssr: false })
-const FindDoctorApp = dynamic(() => import("@/app/apps/find-doctor/page"), { ssr: false })
-const QueueApp = dynamic(() => import("@/app/apps/queue/page"), { ssr: false })
-const AppointmentApp = dynamic(() => import("@/app/apps/appointment/page"), { ssr: false })
-const TelehealthApp = dynamic(() => import("@/app/apps/telehealth/page"), { ssr: false })
-const RxApp = dynamic(() => import("@/app/apps/rx/page"), { ssr: false })
-const SettingsApp = dynamic(() => import("@/app/apps/settings/page"), { ssr: false })
+function OverlaySpinner() {
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
+        <p className="text-sm text-gray-400">Loading...</p>
+      </div>
+    </div>
+  )
+}
+
+const PatientApp = dynamic(() => import("@/app/apps/patient/page"), { ssr: false, loading: () => <OverlaySpinner /> })
+const VitalsApp = dynamic(() => import("@/app/apps/vitals/page"), { ssr: false, loading: () => <OverlaySpinner /> })
+const LabsApp = dynamic(() => import("@/app/apps/labs/page"), { ssr: false, loading: () => <OverlaySpinner /> })
+const DiagnosticsApp = dynamic(() => import("@/app/apps/diagnostics/page"), { ssr: false, loading: () => <OverlaySpinner /> })
+const FindDoctorApp = dynamic(() => import("@/app/apps/find-doctor/page"), { ssr: false, loading: () => <OverlaySpinner /> })
+const QueueApp = dynamic(() => import("@/app/apps/queue/page"), { ssr: false, loading: () => <OverlaySpinner /> })
+const AppointmentApp = dynamic(() => import("@/app/apps/appointment/page"), { ssr: false, loading: () => <OverlaySpinner /> })
+const TelehealthApp = dynamic(() => import("@/app/apps/telehealth/page"), { ssr: false, loading: () => <OverlaySpinner /> })
+const RxApp = dynamic(() => import("@/app/apps/rx/page"), { ssr: false, loading: () => <OverlaySpinner /> })
+const SettingsApp = dynamic(() => import("@/app/apps/settings/page"), { ssr: false, loading: () => <OverlaySpinner /> })
 
 const APP_LABELS: Record<string, string> = {
   patient: "Patient Records",
