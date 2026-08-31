@@ -7,7 +7,7 @@
     "/api/camera/stream": {},
     "/api/printer/status": {},
     "/api/vitals/heartrate": {},
-    "/api/vitals/pulse": {},
-    "/api/vitals/o2": {}
+    "/api/vitals/o2": {},
+    "/api/vitals/pulse": {}
   }
 }

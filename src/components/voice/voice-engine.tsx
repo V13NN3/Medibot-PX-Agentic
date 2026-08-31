@@ -365,6 +365,22 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
           functionCallName.current = ""
           functionCallArgs.current = ""
 
+          const TOOL_APP_MAP: Record<string, string> = {
+            search_patients: "patient",
+            lookup_patient: "patient",
+            fill_patient_field: "patient",
+            create_patient: "patient",
+            measure_vital: "vitals",
+            read_vitals: "vitals",
+            capture_lab_photo: "labs",
+            interpret_lab_results: "labs",
+            find_doctor: "find-doctor",
+            get_queue_number: "queue",
+            check_now_serving: "queue",
+            book_appointment: "appointment",
+            log_symptom_check: "diagnostics",
+          }
+
           try {
             const args = raw ? JSON.parse(raw) : {}
 
@@ -383,6 +399,13 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
                 item: { type: "function_call_output", call_id: callId, output: JSON.stringify({ navigated_to: app }) },
               }))
             } else {
+              const relatedApp = TOOL_APP_MAP[name]
+              if (relatedApp && !navigateCalledRef.current) {
+                console.log("[voice] tool belongs to app:", relatedApp, "— opening it")
+                navigateCalledRef.current = true
+                openApp(relatedApp)
+              }
+
               const handler = toolHandlers[name]
               if (!handler) {
                 console.warn("[voice] no handler for tool:", name)
