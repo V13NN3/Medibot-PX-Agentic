@@ -238,12 +238,13 @@ function VitalsInner() {
 
     let est: { cm: number; img: string } | null = null
     const heightOverride = manualOverrides.height
+    await speak("We are now measuring your height.")
     if (heightOverride != null) {
       await runStep("height", heightOverride, { instruct: false })
     } else {
       est = await measureHeight()
     }
-    await pause(3000)
+    await pause(2000)
 
     let photoAnalysis: PhotoAnalysis | null = null
     if (est?.img) {
@@ -276,10 +277,12 @@ function VitalsInner() {
       weightVal = fallbackWeight(estimatedWeight)
       console.log("[vitals] weight from photo estimate:", weightVal, "(gender:", gender, ")")
     }
+    await speak("Now measuring your weight.")
     playVideoAsync("/weight.mp4", 4000, "Step on the platform")
     await runStep("weight", weightVal)
     await pause(2000)
 
+    await speak("Now measuring your temperature.")
     playVideoAsync("/temperature.mp4", 4000, "Look at the robot's eye")
     await runStep("temperature", manualOverrides.temperature ?? fallbackTemp())
     await pause(2000)
@@ -302,15 +305,19 @@ function VitalsInner() {
       o2Val = pulse.o2
       hrVal = pulse.hr
     }
+    await speak("Now measuring your oxygen level.")
     playVideoAsync("/bloodoxygen.mp4", 4000, "Put finger on robot's mouth")
     await runStep("oxygen", o2Val)
     await pause(1000)
+    await speak("Now measuring your heart rate.")
     playVideoAsync("/heartrate.mp4", 4000, "Checking heart rate")
     await runStep("heart_rate", hrVal)
 
+    const finalHeight = heightOverride ?? est?.cm ?? sensor.height_cm ?? 0
+    const finalWeight = weightVal
     setReading({
-      weight_kg: weightVal,
-      height_cm: heightOverride ?? est?.cm ?? sensor.height_cm ?? 0,
+      weight_kg: finalWeight,
+      height_cm: finalHeight,
       temperature_c: manualOverrides.temperature ?? sensor.temperature_c,
       oxygen_saturation: o2Val,
       heart_rate: hrVal,
@@ -318,6 +325,13 @@ function VitalsInner() {
       image_base64: est?.img,
     })
     setStarting(false)
+
+    if (finalHeight > 0 && finalWeight > 0) {
+      const bmiResult = calcBMI(finalHeight, finalWeight)
+      if (bmiResult) {
+        await speak(`Your body mass index is ${bmiResult.bmi.toFixed(1)}. ${bmiResult.label}.`)
+      }
+    }
   }
 
   const readPulseWithFallback = async (gender: "male" | "female" | "unknown"): Promise<{ o2: number; hr: number }> => {

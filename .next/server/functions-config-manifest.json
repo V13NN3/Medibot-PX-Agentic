@@ -1,13 +1,13 @@
 {
   "version": 1,
   "functions": {
-    "/api/camera/analyze": {},
-    "/api/camera/capture": {},
     "/api/camera/release": {},
+    "/api/camera/capture": {},
     "/api/printer/status": {},
+    "/api/camera/analyze": {},
+    "/api/vitals/pulse": {},
     "/api/vitals/o2": {},
     "/api/camera/stream": {},
-    "/api/vitals/heartrate": {},
-    "/api/vitals/pulse": {}
+    "/api/vitals/heartrate": {}
   }
 }
