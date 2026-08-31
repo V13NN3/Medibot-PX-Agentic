@@ -345,7 +345,7 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
           functionCallId.current = msg.call_id || ""
           functionCallName.current = msg.function_name || ""
           functionCallArgs.current = ""
-          console.log("[voice] function_call start:", msg.function_name)
+          console.log("[voice] function_call start:", msg.function_name, "call_id:", msg.call_id)
           return
         }
 
@@ -355,11 +355,11 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
         }
 
         if (msg.type === "response.function_call_arguments.done") {
-          const name = functionCallName.current
-          const callId = functionCallId.current
-          const raw = functionCallArgs.current
+          const name = functionCallName.current || msg.function_name || ""
+          const callId = functionCallId.current || msg.call_id || ""
+          const raw = functionCallArgs.current || ""
 
-          console.log("[voice] function_call done:", name, "args:", raw)
+          console.log("[voice] function_call done:", name, "call_id:", callId, "args:", raw)
 
           functionCallId.current = ""
           functionCallName.current = ""
