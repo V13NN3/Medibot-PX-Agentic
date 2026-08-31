@@ -70,7 +70,7 @@ function VitalsInner() {
   const [manualInputs, setManualInputs] = useState<Partial<Record<MeasurementKey, string>>>({})
   const [manualOverrides, setManualOverrides] = useState<Partial<Record<MeasurementKey, number>>>({})
   const tapsRef = useRef<number[]>([])
-  const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
+  const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "preview" | "countdown" | "measuring">("idle")
   const [pulsePhase, setPulsePhase] = useState<"idle" | "instruct" | "countup" | "measuring">("idle")
   const [countdownNum, setCountdownNum] = useState(3)
   const [heightEst, setHeightEst] = useState<{ cm: number; img: string } | null>(null)
@@ -84,6 +84,7 @@ function VitalsInner() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [imgSrc, setImgSrc] = useState<string | null>(null)
   const [previewLabel, setPreviewLabel] = useState<string | null>(null)
+  const [cameraPreview, setCameraPreview] = useState(false)
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [printMsg, setPrintMsg] = useState("")
@@ -329,10 +330,15 @@ function VitalsInner() {
   const measureHeight = async (): Promise<{ cm: number; img: string } | null> => {
     if (heightPhase === "instruct" || heightPhase === "countdown" || heightPhase === "measuring") return null
     setHeightErr("")
+
     setHeightPhase("instruct")
-    showImage("/height-guide.png", 4000, "Measured from robot's camera")
-    speak("Step back 3 steps.")
+    showImage("/height-guide.png", 4000, "Move 3 steps back")
+    speak("Move 3 steps back.")
     await pause(4000)
+
+    setHeightPhase("preview")
+    setCameraPreview(true)
+    await pause(3000)
 
     setHeightPhase("countdown")
     speak("Get ready. Three, two, one.")
@@ -342,8 +348,12 @@ function VitalsInner() {
     }
 
     setHeightPhase("measuring")
+    setCameraPreview(false)
+    await fetch("/api/camera/release", { method: "POST" }).catch(() => {})
+    await pause(600)
+
     console.log("[vitals] height: capturing photo from Pi camera...")
-    speak("Please hold still")
+    speak("Hold still")
     try {
       const res = await fetch("/api/vitals/height", { method: "POST" })
       if (!res.ok) throw new Error("Height API failed")
@@ -360,7 +370,7 @@ function VitalsInner() {
       setValues((prev) => ({ ...prev, height: cm }))
       const ft = formatHeightFtIn(cm).split("'")[0]
       const inch = formatHeightFtIn(cm).split("'")[1].replace('"', "")
-      speak(`Your height is ${cm.toFixed(0)} centimeters, or ${ft} feet ${inch} inches.`)
+      speak(`${cm.toFixed(0)} centimeters. ${ft} feet ${inch} inches.`)
       setHeightPhase("idle")
       return est
     } catch (err) {
@@ -375,8 +385,8 @@ function VitalsInner() {
     if (pulsePhase !== "idle") return
     setPulseErr("")
     setPulsePhase("instruct")
-    playVideoAsync("/bloodoxygen.mp4", 4000, "Measured from robot's mouth")
-    speak("Finger on robot's mouth.")
+    playVideoAsync("/bloodoxygen.mp4", 4000, "Put finger on robot's mouth")
+    speak("Put finger on robot's mouth.")
     await pause(4000)
 
     setPulsePhase("countup")
@@ -669,7 +679,7 @@ function VitalsInner() {
               {m.key === "height" && (
                 <button onClick={measureHeight} disabled={starting || measuring.length > 0 || busy}
                   className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
-                  {heightPhase === "instruct" ? "Step back..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : value ? "Re-measure" : "Measure"}
+                  {heightPhase === "instruct" ? "Step back..." : heightPhase === "preview" ? "Previewing..." : heightPhase === "countdown" ? "Get ready..." : heightPhase === "measuring" ? "Analyzing..." : value ? "Re-measure" : "Measure"}
                 </button>
               )}
               {m.key === "oxygen" && (
@@ -813,6 +823,15 @@ function VitalsInner() {
               {previewLabel}
             </p>
           )}
+        </div>
+      )}
+
+      {cameraPreview && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
+          <img src="/api/camera/stream" className="max-w-full max-h-full rounded-2xl shadow-2xl" />
+          <p className="absolute bottom-8 text-lg font-semibold text-white/90 bg-black/50 px-5 py-2.5 rounded-full backdrop-blur-sm">
+            Move 3 steps back
+          </p>
         </div>
       )}
     </div>
