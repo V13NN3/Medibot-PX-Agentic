@@ -23,10 +23,10 @@ interface Reading {
 type MeasurementKey = "weight" | "height" | "temperature" | "oxygen" | "heart_rate"
 
 const STEP_NOTES: Record<"weight" | "temperature" | "oxygen" | "heart_rate", string> = {
-  weight: "Please step on the weighing platform and stand still.",
-  temperature: "Temperature will be measured from the eye of the robot. Please look toward the robot's eye.",
-  oxygen: "Pulse oximeter will be measured from the mouth area of the robot. Please place your finger near the robot's mouth.",
-  heart_rate: "Heart rate will be measured from the mouth area of the robot. Please place your finger near the robot's mouth.",
+  weight: "Step on the platform.",
+  temperature: "Look at the robot's eye.",
+  oxygen: "Finger on the robot's mouth.",
+  heart_rate: "Finger on the robot's mouth.",
 }
 
 const MEASUREMENTS = [
@@ -71,13 +71,11 @@ function VitalsInner() {
   const [manualOverrides, setManualOverrides] = useState<Partial<Record<MeasurementKey, number>>>({})
   const tapsRef = useRef<number[]>([])
   const [heightPhase, setHeightPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
-  const [o2Phase, setO2Phase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
+  const [pulsePhase, setPulsePhase] = useState<"idle" | "instruct" | "countup" | "measuring">("idle")
   const [countdownNum, setCountdownNum] = useState(3)
   const [heightEst, setHeightEst] = useState<{ cm: number; img: string } | null>(null)
   const [heightErr, setHeightErr] = useState("")
-  const [o2Err, setO2Err] = useState("")
-  const [hrPhase, setHrPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
-  const [hrErr, setHrErr] = useState("")
+  const [pulseErr, setPulseErr] = useState("")
   const [weightPhase, setWeightPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
   const [weightErr, setWeightErr] = useState("")
   const [tempPhase, setTempPhase] = useState<"idle" | "instruct" | "countdown" | "measuring">("idle")
@@ -105,30 +103,15 @@ function VitalsInner() {
 
   const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
-  const playVideo = (src: string) =>
+  const playVideoAsync = (src: string, durationMs: number) =>
     new Promise<void>((resolve) => {
-      console.log("[vitals] playing instructional video:", src)
+      console.log("[vitals] showing video:", src, "for", durationMs, "ms")
       setVideoSrc(src)
-      const checkReady = () => {
-        const v = videoRef.current
-        if (!v) { requestAnimationFrame(checkReady); return }
-        v.onended = () => {
-          console.log("[vitals] video ended:", src)
-          setVideoSrc(null)
-          resolve()
-        }
-        v.onerror = () => {
-          console.warn("[vitals] video error, skipping:", src)
-          setVideoSrc(null)
-          resolve()
-        }
-        v.play().catch(() => {
-          console.warn("[vitals] video play blocked, skipping:", src)
-          setVideoSrc(null)
-          resolve()
-        })
-      }
-      requestAnimationFrame(checkReady)
+      setTimeout(() => {
+        console.log("[vitals] video done:", src)
+        setVideoSrc(null)
+        resolve()
+      }, durationMs)
     })
 
   const showImage = (src: string, durationMs: number) =>
@@ -141,6 +124,13 @@ function VitalsInner() {
         resolve()
       }, durationMs)
     })
+
+  const countUp = async (target: number) => {
+    for (let n = 1; n <= target; n++) {
+      setCountdownNum(n)
+      await pause(1000)
+    }
+  }
 
   const runCountdown = async () => {
     setGlobalCountdown(true)
@@ -284,24 +274,24 @@ function VitalsInner() {
     await pause(2000)
 
     const o2Override = manualOverrides.oxygen
+    const hrOverride = manualOverrides.heart_rate
     let o2Val: number
-    if (o2Override != null) {
+    let hrVal: number
+    if (o2Override != null && hrOverride != null) {
       o2Val = o2Override
+      hrVal = hrOverride
+    } else if (o2Override != null) {
+      o2Val = o2Override
+      hrVal = fallbackHR(gender)
+    } else if (hrOverride != null) {
+      hrVal = hrOverride
+      o2Val = fallbackO2(gender)
     } else {
-      const sensorO2 = await readO2WithFallback(gender)
-      o2Val = sensorO2
+      const pulse = await readPulseWithFallback(gender)
+      o2Val = pulse.o2
+      hrVal = pulse.hr
     }
     await runStep("oxygen", o2Val)
-    await pause(2000)
-
-    const hrOverride = manualOverrides.heart_rate
-    let hrVal: number
-    if (hrOverride != null) {
-      hrVal = hrOverride
-    } else {
-      const sensorHR = await readHRWithFallback(gender)
-      hrVal = sensorHR
-    }
     await runStep("heart_rate", hrVal)
 
     setReading({
@@ -316,52 +306,34 @@ function VitalsInner() {
     setStarting(false)
   }
 
-  const readO2WithFallback = async (gender: "male" | "female" | "unknown"): Promise<number> => {
+  const readPulseWithFallback = async (gender: "male" | "female" | "unknown"): Promise<{ o2: number; hr: number }> => {
     try {
-      const res = await fetch("/api/vitals/o2")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.o2_percentage && data.o2_percentage > 0) {
-          console.log("[vitals] O2 from sensor:", data.o2_percentage)
-          return data.o2_percentage
-        }
-      }
-    } catch {}
-    const fb = fallbackO2(gender)
-    console.log("[vitals] O2 sensor failed, using fallback:", fb, "(gender:", gender, ")")
-    return fb
-  }
-
-  const readHRWithFallback = async (gender: "male" | "female" | "unknown"): Promise<number> => {
-    try {
-      const res = await fetch("/api/vitals/heartrate")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.heart_rate && data.heart_rate > 0) {
-          console.log("[vitals] HR from sensor:", data.heart_rate)
-          return data.heart_rate
-        }
-      }
-    } catch {}
-    const fb = fallbackHR(gender)
-    console.log("[vitals] HR sensor failed, using fallback:", fb, "(gender:", gender, ")")
-    return fb
+      const [o2Res, hrRes] = await Promise.all([
+        fetch("/api/vitals/o2").then((r) => r.ok ? r.json() : null).catch(() => null),
+        fetch("/api/vitals/heartrate").then((r) => r.ok ? r.json() : null).catch(() => null),
+      ])
+      const o2 = (o2Res?.o2_percentage && o2Res.o2_percentage > 0) ? o2Res.o2_percentage : fallbackO2(gender)
+      const hr = (hrRes?.heart_rate && hrRes.heart_rate > 0) ? hrRes.heart_rate : fallbackHR(gender)
+      console.log(`[vitals] pulse: O2=${o2}% HR=${hr}bpm`)
+      return { o2, hr }
+    } catch {
+      return { o2: fallbackO2(gender), hr: fallbackHR(gender) }
+    }
   }
 
   const measureHeight = async (): Promise<{ cm: number; img: string } | null> => {
     if (heightPhase === "instruct" || heightPhase === "countdown" || heightPhase === "measuring") return null
     setHeightErr("")
-    await showImage("/height-guide.png", 4000)
     setHeightPhase("instruct")
-    console.log("[vitals] height: instructing patient to step back")
-    speak("Please step back 3 steps from the camera and stand straight with your feet on the ground.")
-    await new Promise((r) => setTimeout(r, 2500))
+    showImage("/height-guide.png", 4000)
+    speak("Step back 3 steps.")
+    await pause(4000)
 
     setHeightPhase("countdown")
     speak("Get ready. Three, two, one.")
     for (let n = 3; n >= 1; n--) {
       setCountdownNum(n)
-      await new Promise((r) => setTimeout(r, 1000))
+      await pause(1000)
     }
 
     setHeightPhase("measuring")
@@ -394,100 +366,58 @@ function VitalsInner() {
     }
   }
 
-  const measureO2 = async () => {
-    if (o2Phase !== "idle") return
-    setO2Err("")
-    await playVideo("/bloodoxygen.mp4")
-    setO2Phase("instruct")
-    console.log("[vitals] O2: instructing patient to place finger on sensor")
-    speak("Place your finger on the sensor and hold still.")
-    await new Promise((r) => setTimeout(r, 2500))
+  const measurePulse = async () => {
+    if (pulsePhase !== "idle") return
+    setPulseErr("")
+    setPulsePhase("instruct")
+    playVideoAsync("/bloodoxygen.mp4", 4000)
+    speak("Finger on robot's mouth.")
+    await pause(4000)
 
-    setO2Phase("countdown")
-    speak("Get ready. Three, two, one.")
-    for (let n = 3; n >= 1; n--) {
-      setCountdownNum(n)
-      await new Promise((r) => setTimeout(r, 1000))
-    }
+    setPulsePhase("countup")
+    speak("Hold still.")
+    await countUp(5)
 
-    setO2Phase("measuring")
-    console.log("[vitals] O2: reading I2C sensor...")
-    speak("Measuring now. Hold still.")
+    setPulsePhase("measuring")
+    console.log("[vitals] pulse: reading O2 + HR sensors...")
+    let o2Val = 0
+    let hrVal = 0
+
     try {
-      const res = await fetch("/api/vitals/o2")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.o2_percentage && data.o2_percentage > 0) {
-          const o2 = data.o2_percentage
-          console.log(`[vitals] O2: sensor result=${o2}% raw_adc=${data.raw_adc}`)
-          setValues((prev) => ({ ...prev, oxygen: o2 }))
-          speak(`Your oxygen level is ${o2.toFixed(0)} percent.`)
-          setO2Phase("idle")
-          return
-        }
+      const [o2Res, hrRes] = await Promise.all([
+        fetch("/api/vitals/o2").then((r) => r.ok ? r.json() : null).catch(() => null),
+        fetch("/api/vitals/heartrate").then((r) => r.ok ? r.json() : null).catch(() => null),
+      ])
+      if (o2Res?.o2_percentage && o2Res.o2_percentage > 0) {
+        o2Val = o2Res.o2_percentage
+      }
+      if (hrRes?.heart_rate && hrRes.heart_rate > 0) {
+        hrVal = hrRes.heart_rate
       }
     } catch {}
-    const fb = fallbackO2("unknown")
-    console.log(`[vitals] O2: sensor failed, fallback=${fb}%`)
-    setValues((prev) => ({ ...prev, oxygen: fb }))
-    speak(`Your oxygen level is ${fb.toFixed(0)} percent.`)
-    setO2Phase("idle")
-  }
 
-  const measureHeartRate = async () => {
-    if (hrPhase !== "idle") return
-    setHrErr("")
-    await playVideo("/heartrate.mp4")
-    setHrPhase("instruct")
-    console.log("[vitals] HR: instructing patient to place finger on sensor")
-    speak("Place your finger on the sensor and hold still.")
-    await new Promise((r) => setTimeout(r, 2500))
+    if (o2Val <= 0) o2Val = fallbackO2("unknown")
+    if (hrVal <= 0) hrVal = fallbackHR("unknown")
 
-    setHrPhase("countdown")
-    speak("Get ready. Three, two, one.")
-    for (let n = 3; n >= 1; n--) {
-      setCountdownNum(n)
-      await new Promise((r) => setTimeout(r, 1000))
-    }
-
-    setHrPhase("measuring")
-    console.log("[vitals] HR: reading I2C sensor...")
-    speak("Measuring now. Hold still.")
-    try {
-      const res = await fetch("/api/vitals/heartrate")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.heart_rate && data.heart_rate > 0) {
-          const hr = data.heart_rate
-          console.log(`[vitals] HR: sensor result=${hr}bpm raw_adc=${data.raw_adc}`)
-          setValues((prev) => ({ ...prev, heart_rate: hr }))
-          speak(`Your heart rate is ${hr} beats per minute.`)
-          setHrPhase("idle")
-          return
-        }
-      }
-    } catch {}
-    const fb = fallbackHR("unknown")
-    console.log(`[vitals] HR: sensor failed, fallback=${fb}bpm`)
-    setValues((prev) => ({ ...prev, heart_rate: fb }))
-    speak(`Your heart rate is ${fb} beats per minute.`)
-    setHrPhase("idle")
+    console.log(`[vitals] pulse: O2=${o2Val}% HR=${hrVal}bpm`)
+    setValues((prev) => ({ ...prev, oxygen: o2Val, heart_rate: hrVal }))
+    speak(`Oxygen ${o2Val.toFixed(0)} percent. Heart rate ${hrVal}.`)
+    setPulsePhase("idle")
   }
 
   const measureWeight = async () => {
     if (weightPhase !== "idle") return
     setWeightErr("")
-    await playVideo("/weight.mp4")
     setWeightPhase("instruct")
-    console.log("[vitals] weight: instructing patient to step on scale")
-    speak("Please step on the weighing platform and stand still.")
-    await new Promise((r) => setTimeout(r, 2500))
+    playVideoAsync("/weight.mp4", 4000)
+    speak("Step on scale.")
+    await pause(4000)
 
     setWeightPhase("countdown")
     speak("Get ready. Three, two, one.")
     for (let n = 3; n >= 1; n--) {
       setCountdownNum(n)
-      await new Promise((r) => setTimeout(r, 1000))
+      await pause(1000)
     }
 
     setWeightPhase("measuring")
@@ -535,17 +465,16 @@ function VitalsInner() {
   const measureTemperature = async () => {
     if (tempPhase !== "idle") return
     setTempErr("")
-    await playVideo("/temperature.mp4")
     setTempPhase("instruct")
-    console.log("[vitals] temp: instructing patient")
-    speak("Temperature will be measured from the eye of the robot. Please look toward the robot's eye.")
-    await new Promise((r) => setTimeout(r, 2500))
+    playVideoAsync("/temperature.mp4", 4000)
+    speak("Look at robot's eye.")
+    await pause(4000)
 
     setTempPhase("countdown")
     speak("Get ready. Three, two, one.")
     for (let n = 3; n >= 1; n--) {
       setCountdownNum(n)
-      await new Promise((r) => setTimeout(r, 1000))
+      await pause(1000)
     }
 
     setTempPhase("measuring")
@@ -654,7 +583,7 @@ function VitalsInner() {
     }
   }, [reveal])
 
-  const busy = heightPhase !== "idle" || o2Phase !== "idle" || hrPhase !== "idle" || weightPhase !== "idle" || tempPhase !== "idle"
+  const busy = heightPhase !== "idle" || pulsePhase !== "idle" || weightPhase !== "idle" || tempPhase !== "idle"
 
   return (
     <div className="flex-1 flex flex-col p-3 md:p-4 gap-2 max-w-xl mx-auto w-full overflow-hidden">
@@ -706,7 +635,7 @@ function VitalsInner() {
       <div className="grid grid-cols-3 gap-2">
         {MEASUREMENTS.map((m) => {
           const isMeasuring = measuring.includes(m.key)
-          const isBusy = isMeasuring || (m.key === "height" && busy) || (m.key === "oxygen" && o2Phase !== "idle") || (m.key === "heart_rate" && hrPhase !== "idle") || (m.key === "weight" && weightPhase !== "idle") || (m.key === "temperature" && tempPhase !== "idle")
+          const isBusy = isMeasuring || (m.key === "height" && busy) || (m.key === "oxygen" && pulsePhase !== "idle") || (m.key === "heart_rate" && pulsePhase !== "idle") || (m.key === "weight" && weightPhase !== "idle") || (m.key === "temperature" && tempPhase !== "idle")
           const raw = values[m.key] ?? null
           const value = raw != null ? m.fmt(raw) : null
           const heightCm = m.key === "height" ? raw : null
@@ -741,15 +670,15 @@ function VitalsInner() {
                 </button>
               )}
               {m.key === "oxygen" && (
-                <button onClick={measureO2} disabled={starting || measuring.length > 0 || busy}
+                <button onClick={measurePulse} disabled={starting || measuring.length > 0 || busy}
                   className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
-                  {o2Phase === "instruct" ? "Place finger..." : o2Phase === "countdown" ? "Get ready..." : o2Phase === "measuring" ? "Measuring..." : value ? "Re-measure" : "Measure"}
+                  {pulsePhase === "instruct" ? "Finger on mouth..." : pulsePhase === "countup" ? "Hold still..." : pulsePhase === "measuring" ? "Measuring..." : value ? "Re-measure" : "Measure"}
                 </button>
               )}
               {m.key === "heart_rate" && (
-                <button onClick={measureHeartRate} disabled={starting || measuring.length > 0 || busy}
+                <button onClick={measurePulse} disabled={starting || measuring.length > 0 || busy}
                   className="mt-1 px-3 py-1 rounded-lg bg-gray-100 border border-gray-300 text-[11px] font-bold text-foreground hover:bg-gray-200 transition-colors disabled:opacity-50">
-                  {hrPhase === "instruct" ? "Place finger..." : hrPhase === "countdown" ? "Get ready..." : hrPhase === "measuring" ? "Measuring..." : value ? "Re-measure" : "Measure"}
+                  {pulsePhase === "instruct" ? "Finger on mouth..." : pulsePhase === "countup" ? "Hold still..." : pulsePhase === "measuring" ? "Measuring..." : value ? "Re-measure" : "Measure"}
                 </button>
               )}
               {m.key === "weight" && (
@@ -859,7 +788,7 @@ function VitalsInner() {
         />
       )}
 
-      <CountdownOverlay number={countdownNum} show={heightPhase === "countdown" || globalCountdown} />
+      <CountdownOverlay number={countdownNum} show={heightPhase === "countdown" || pulsePhase === "countup" || globalCountdown} />
 
       {videoSrc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
