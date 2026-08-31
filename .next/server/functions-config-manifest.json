@@ -4,10 +4,10 @@
     "/api/camera/analyze": {},
     "/api/camera/capture": {},
     "/api/camera/release": {},
-    "/api/camera/stream": {},
     "/api/printer/status": {},
     "/api/vitals/heartrate": {},
     "/api/vitals/o2": {},
-    "/api/vitals/pulse": {}
+    "/api/vitals/pulse": {},
+    "/api/camera/stream": {}
   }
 }

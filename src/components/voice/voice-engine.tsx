@@ -21,7 +21,13 @@ const RELAY_URL = resolveRelayUrl()
 const SESSION_TIMEOUT = 8000
 const SILENCE_THRESHOLD = 0.025
 const SILENCE_FRAMES_MAX = 10
-const NO_RESPONSE_TIMEOUT = 5000
+const NO_RESPONSE_TIMEOUT = 4000
+
+const INTRO_MESSAGES = [
+  "I'm here to help you register, check your vitals, and find your doctor.",
+  "I'm here whenever you are ready.",
+  "No problem. If you need help, just tap the blue button anytime.",
+]
 
 const TRANSCRIPT_APP_MAP: Array<{ keywords: string[]; app: string }> = [
   { keywords: ["register", "registration", "new patient", "sign up", "enroll", "patient record", "patient"], app: "patient" },
@@ -130,22 +136,25 @@ export function VoiceEngineProvider({ children }: { children: React.ReactNode })
   const startNoResponseTimer = useCallback(() => {
     clearResponseWait()
     awaitingResponseRef.current = true
-    console.log("[voice] waiting 5s for patient response...")
+    console.log("[voice] waiting", NO_RESPONSE_TIMEOUT, "ms for patient response...")
     responseWaitTimerRef.current = setTimeout(() => {
       awaitingResponseRef.current = false
       const ws = wsRef.current
       if (!ws || ws.readyState !== WebSocket.OPEN) return
       if (stateRef.current !== "listening") return
-      if (reAskCountRef.current === 0) {
-        reAskCountRef.current = 1
-        console.log("[voice] no response — asking the patient again")
+
+      const stage = reAskCountRef.current
+      if (stage < INTRO_MESSAGES.length) {
+        reAskCountRef.current = stage + 1
+        const msg = INTRO_MESSAGES[stage]
+        console.log("[voice] no response — intro stage", stage + 1, ":", msg)
         setState("responding")
         ws.send(JSON.stringify({
           type: "conversation.item.create",
           item: {
             type: "message",
             role: "user",
-            content: [{ type: "input_text", text: "[System: The patient did not respond. Please gently ask them to speak again and wait for their response.]" }],
+            content: [{ type: "input_text", text: `[System: The patient did not respond. Say this exactly: "${msg}" Then wait for their response.]` }],
           },
         }))
         ws.send(JSON.stringify({ type: "response.create" }))
@@ -263,7 +272,7 @@ LAB FLOW:
 - navigate_to("labs") → say "Hold paper to camera."
 - capture_lab_photo → interpret_lab_results → discuss briefly.
 
-GREETING: "Hi! I'm Medibot. What would you like to do?"`,
+GREETING: When activated, say "This is Medibot PX, your healthcare assistant robot." then say what you can help with and ask what they'd like to do. Keep it natural and friendly but brief.`,
               tools: toolDefinitions,
             },
           }))
@@ -272,8 +281,8 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
 
         if (msg.type === "session.updated") {
           clearTimeout(sessionTimer)
-          console.log("[voice] session.updated → starting audio capture")
-          setState("listening")
+          console.log("[voice] session.updated → sending intro trigger")
+          setState("responding")
           capture.start((base64, float32) => {
             chunkCount.current++
             if (!mutedRef.current && ws.readyState === WebSocket.OPEN) {
@@ -316,6 +325,16 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
                 setErrorMsg("Microphone error: " + err.message)
               }
             })
+
+          ws.send(JSON.stringify({
+            type: "conversation.item.create",
+            item: {
+              type: "message",
+              role: "user",
+              content: [{ type: "input_text", text: "[System: The patient just activated you. Introduce yourself by saying: 'This is Medibot PX, your healthcare assistant robot. I'm here to help you register, check your vitals, and find your doctor.' Then ask: 'What would you like to do today?' and wait for their response.]" }],
+            },
+          }))
+          ws.send(JSON.stringify({ type: "response.create" }))
           return
         }
 
