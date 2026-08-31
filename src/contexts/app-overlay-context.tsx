@@ -28,19 +28,22 @@ export function AppOverlayProvider({ children }: { children: React.ReactNode }) 
   })
 
   const openApp = useCallback((app: string, params?: Record<string, string>) => {
-    console.log("[overlay] opening:", app, params)
+    console.log("[overlay-ctx] openApp called:", app, "params:", params, "current state:", overlay.currentApp)
     setOverlay({ currentApp: app, appParams: params || {} })
+    console.log("[overlay-ctx] state set to:", app)
   }, [])
 
   const closeApp = useCallback(() => {
-    console.log("[overlay] closing")
+    console.log("[overlay-ctx] closeApp called")
     setOverlay({ currentApp: null, appParams: {} })
   }, [])
 
   const swapApp = useCallback((app: string, params?: Record<string, string>) => {
-    console.log("[overlay] swapping to:", app, params)
+    console.log("[overlay-ctx] swapApp called:", app)
     setOverlay({ currentApp: app, appParams: params || {} })
   }, [])
+
+  console.log("[overlay-ctx] render, currentApp:", overlay.currentApp)
 
   return (
     <AppOverlayContext.Provider value={{ ...overlay, openApp, closeApp, swapApp }}>

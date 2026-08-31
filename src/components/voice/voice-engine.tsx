@@ -359,7 +359,7 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
           const callId = functionCallId.current
           const raw = functionCallArgs.current
 
-          console.log("[voice] function_call done:", name)
+          console.log("[voice] function_call done:", name, "args:", raw)
 
           functionCallId.current = ""
           functionCallName.current = ""
@@ -389,21 +389,25 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
               const app = String(args.app || "")
               const params: Record<string, string> = {}
               if (args.search) params.search = String(args.search)
+              console.log("[voice] navigate_to calling openApp:", app)
               if (app === "home") {
                 closeApp()
               } else {
                 openApp(app, Object.keys(params).length > 0 ? params : undefined)
               }
+              console.log("[voice] navigate_to openApp done:", app)
               ws.send(JSON.stringify({
                 type: "conversation.item.create",
                 item: { type: "function_call_output", call_id: callId, output: JSON.stringify({ navigated_to: app }) },
               }))
             } else {
               const relatedApp = TOOL_APP_MAP[name]
+              console.log("[voice] tool:", name, "relatedApp:", relatedApp, "navigateCalled:", navigateCalledRef.current)
               if (relatedApp && !navigateCalledRef.current) {
-                console.log("[voice] tool belongs to app:", relatedApp, "— opening it")
+                console.log("[voice] OPENING APP:", relatedApp, "for tool:", name)
                 navigateCalledRef.current = true
                 openApp(relatedApp)
+                console.log("[voice] openApp(relatedApp) returned for:", relatedApp)
               }
 
               const handler = toolHandlers[name]

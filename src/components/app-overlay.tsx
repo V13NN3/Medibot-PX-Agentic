@@ -58,13 +58,16 @@ export default function AppOverlay() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent).detail as { app: string; params?: Record<string, string> }
-      if (detail?.app) openApp(detail.app, detail.params)
+      if (detail?.app) {
+        console.log("[overlay-component] event open-app-overlay:", detail.app)
+        openApp(detail.app, detail.params)
+      }
     }
     window.addEventListener("open-app-overlay", onOpen)
     return () => window.removeEventListener("open-app-overlay", onOpen)
   }, [openApp])
 
-  console.log("[overlay] render currentApp:", currentApp)
+  console.log("[overlay-component] render, currentApp:", currentApp)
 
   if (!currentApp) return null
 
@@ -72,9 +75,11 @@ export default function AppOverlay() {
   const label = APP_LABELS[currentApp] || currentApp
 
   if (!AppComponent) {
-    console.warn("[overlay] unknown app:", currentApp)
+    console.warn("[overlay-component] unknown app:", currentApp)
     return null
   }
+
+  console.log("[overlay-component] rendering app:", currentApp, "->", label)
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-gray-950 overlay-slide-in">
