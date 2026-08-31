@@ -596,6 +596,13 @@ function VitalsInner() {
   }
 
   useEffect(() => {
+    if (videoSrc && videoRef.current) {
+      videoRef.current.load()
+      videoRef.current.play().catch(() => {})
+    }
+  }, [videoSrc])
+
+  useEffect(() => {
     const onMeasure = (e: Event) => {
       const detail = (e as CustomEvent).detail as { measurement: string }
       if (detail?.measurement) {
@@ -855,7 +862,7 @@ function VitalsInner() {
 
       {videoSrc && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
-          <video ref={videoRef} src={videoSrc} muted playsInline
+          <video ref={videoRef} src={videoSrc} muted playsInline autoPlay
             className="max-w-full max-h-full rounded-2xl shadow-2xl" />
           {previewLabel && (
             <p className="absolute bottom-8 text-lg font-semibold text-white/90 bg-black/50 px-5 py-2.5 rounded-full backdrop-blur-sm">
