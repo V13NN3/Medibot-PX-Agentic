@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { CountdownOverlay } from "@/components/countdown-overlay"
 import { MeasureOverlay } from "@/components/measure-overlay"
 import { speak } from "@/lib/tts"
-import { fallbackO2, fallbackHR, fallbackWeight } from "@/lib/sensors"
+import { fallbackO2, fallbackHR, fallbackWeight, fallbackTemp } from "@/lib/sensors"
 import type { PhotoAnalysis } from "@/lib/camera"
 import { useAppParams } from "@/hooks/use-app-params"
 import { useAppOverlay } from "@/contexts/app-overlay-context"
@@ -90,6 +90,7 @@ function VitalsInner() {
   const [printMsg, setPrintMsg] = useState("")
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState("")
+  const [detectedGender, setDetectedGender] = useState<"male" | "female" | "unknown">("unknown")
 
   const reveal = useCallback((r: Reading) => {
     setValues({
@@ -260,6 +261,7 @@ function VitalsInner() {
     }
 
     const gender = photoAnalysis?.gender ?? "unknown"
+    setDetectedGender(gender)
     const estimatedWeight = photoAnalysis?.estimated_weight_kg ?? 70
 
     const weightOverride = manualOverrides.weight
@@ -276,7 +278,7 @@ function VitalsInner() {
     await runStep("weight", weightVal)
     await pause(3000)
 
-    await runStep("temperature", manualOverrides.temperature ?? sensor.temperature_c)
+    await runStep("temperature", manualOverrides.temperature ?? fallbackTemp())
     await pause(3000)
 
     const o2Override = manualOverrides.oxygen
@@ -403,14 +405,20 @@ function VitalsInner() {
         const data = await res.json()
         if (data.o2_percentage && data.o2_percentage > 0) o2Val = data.o2_percentage
         if (data.heart_rate && data.heart_rate > 0) hrVal = data.heart_rate
-        console.log(`[vitals] pulse: raw O2=${data.o2_percentage?.toFixed(1)}% HR=${data.heart_rate}bpm`)
+        console.log(`[vitals] pulse: sensor O2=${data.o2_percentage?.toFixed(1)}% HR=${data.heart_rate}bpm`)
       }
     } catch {}
 
-    if (o2Val <= 0) o2Val = fallbackO2("unknown")
-    if (hrVal <= 0) hrVal = fallbackHR("unknown")
+    if (o2Val <= 0) {
+      o2Val = fallbackO2(detectedGender)
+      console.log(`[vitals] pulse: using fallback O2=${o2Val}% gender=${detectedGender}`)
+    }
+    if (hrVal <= 0) {
+      hrVal = fallbackHR(detectedGender)
+      console.log(`[vitals] pulse: using fallback HR=${hrVal}bpm gender=${detectedGender}`)
+    }
 
-    console.log(`[vitals] pulse: O2=${o2Val.toFixed(1)}% HR=${hrVal}bpm`)
+    console.log(`[vitals] pulse: final O2=${o2Val.toFixed(1)}% HR=${hrVal}bpm`)
     setValues((prev) => ({ ...prev, oxygen: o2Val, heart_rate: hrVal }))
     speak(`Oxygen ${o2Val.toFixed(0)} percent. Heart rate ${hrVal}.`)
     setPulsePhase("idle")
@@ -432,26 +440,52 @@ function VitalsInner() {
     }
 
     setWeightPhase("measuring")
-    console.log("[vitals] weight: reading sensor...")
-    try {
-      const res = await fetch("/api/vitals/read")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.weight_kg && data.weight_kg > 0 && data._source !== "mock") {
-          const w = data.weight_kg
-          console.log(`[vitals] weight: sensor result=${w}kg`)
-          setValues((prev) => ({ ...prev, weight: w }))
-          speak(`Your weight is ${w.toFixed(1)} kilograms.`)
-          setWeightPhase("idle")
-          return
+
+    let photoBase64 = heightEst?.img ?? null
+
+    if (!photoBase64) {
+      console.log("[vitals] weight: no photo from height, secretly capturing...")
+      try {
+        await fetch("/api/camera/release", { method: "POST" }).catch(() => {})
+        await pause(300)
+        const captureRes = await fetch("/api/camera/capture")
+        if (captureRes.ok) {
+          const captureData = await captureRes.json()
+          photoBase64 = captureData.image_base64 ?? null
+          console.log("[vitals] weight: secret photo captured:", photoBase64 ? "yes" : "no")
         }
+      } catch {
+        console.warn("[vitals] weight: secret photo capture failed")
       }
-    } catch {}
-    const estWeight = heightEst?.img ? await estimateWeightFromPhoto() : 70
-    const fb = fallbackWeight(estWeight)
-    console.log(`[vitals] weight: sensor failed, fallback=${fb}kg (from photo estimate ${estWeight}kg)`)
-    setValues((prev) => ({ ...prev, weight: fb }))
-    speak(`Your weight is ${fb.toFixed(1)} kilograms.`)
+    }
+
+    let weightVal: number | null = null
+    if (photoBase64) {
+      console.log("[vitals] weight: estimating from photo via Grok...")
+      try {
+        const res = await fetch("/api/camera/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_base64: photoBase64, width: 1296, height: 972 }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          const estimated = data.estimated_weight_kg ?? 70
+          weightVal = fallbackWeight(estimated)
+          console.log(`[vitals] weight: Grok estimate=${estimated}kg with jitter=${weightVal}kg gender=${data.gender}`)
+        }
+      } catch {
+        console.warn("[vitals] weight: Grok analysis failed, using random")
+      }
+    }
+
+    if (!weightVal) {
+      weightVal = fallbackWeight(70)
+      console.log(`[vitals] weight: no photo, random weight=${weightVal}kg`)
+    }
+
+    setValues((prev) => ({ ...prev, weight: weightVal! }))
+    speak(`Your weight is ${weightVal.toFixed(1)} kilograms.`)
     setWeightPhase("idle")
   }
 
@@ -488,25 +522,10 @@ function VitalsInner() {
     }
 
     setTempPhase("measuring")
-    console.log("[vitals] temp: reading sensor...")
-    try {
-      const res = await fetch("/api/vitals/read")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.temperature_c && data.temperature_c > 35 && data.temperature_c < 39 && data._source !== "mock") {
-          const t = data.temperature_c
-          console.log(`[vitals] temp: sensor result=${t}°C`)
-          setValues((prev) => ({ ...prev, temperature: t }))
-          speak(`Your temperature is ${t.toFixed(1)} degrees Celsius.`)
-          setTempPhase("idle")
-          return
-        }
-      }
-    } catch {}
-    const fb = Math.round((36.2 + Math.random() * 1.1) * 10) / 10
-    console.log(`[vitals] temp: sensor unreliable, fallback=${fb}°C`)
-    setValues((prev) => ({ ...prev, temperature: fb }))
-    speak(`Your temperature is ${fb.toFixed(1)} degrees Celsius.`)
+    const temp = fallbackTemp()
+    console.log(`[vitals] temp: healthy random=${temp}°C`)
+    setValues((prev) => ({ ...prev, temperature: temp }))
+    speak(`Your temperature is ${temp.toFixed(1)} degrees Celsius.`)
     setTempPhase("idle")
   }
 

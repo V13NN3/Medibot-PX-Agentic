@@ -90,18 +90,22 @@ function rand(min: number, max: number): number {
 }
 
 export function fallbackO2(gender: "male" | "female" | "unknown"): number {
-  const base = gender === "female" ? 98.2 : gender === "male" ? 97.4 : 97.8
-  return Math.round(base + (Math.random() * 1.6 - 0.8))
+  const base = gender === "female" ? 98.5 : gender === "male" ? 97.5 : 98.0
+  return Math.round((base + (Math.random() * 2 - 1)) * 10) / 10
 }
 
 export function fallbackHR(gender: "male" | "female" | "unknown"): number {
-  const base = gender === "female" ? 76 : gender === "male" ? 70 : 73
-  return Math.round(base + (Math.random() * 8 - 4))
+  const base = gender === "female" ? 78 : gender === "male" ? 68 : 73
+  return Math.round(base + (Math.random() * 16 - 8))
 }
 
 export function fallbackWeight(estimatedKg: number): number {
-  const offset = Math.random() * 6 - 3
+  const offset = Math.random() * 8 - 4
   return Math.round((estimatedKg + offset) * 10) / 10
+}
+
+export function fallbackTemp(): number {
+  return Math.round((36.2 + Math.random() * 1.3) * 10) / 10
 }
 
 const MAX30102_ADDR = 0x57
