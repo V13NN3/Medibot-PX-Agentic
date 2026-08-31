@@ -1,4 +1,21 @@
 let sharedContext: AudioContext | null = null
+const activePlayers: Set<PcmPlayer> = new Set()
+export let ttsActive = false
+
+export function setTtsActive(active: boolean): void {
+  ttsActive = active
+  console.log("[audio] ttsActive:", active)
+}
+
+export function stopAllPcmAudio(): void {
+  for (const player of activePlayers) {
+    player.clear()
+  }
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    window.speechSynthesis.cancel()
+  }
+  console.log("[audio] stopped all PCM playback + speechSynthesis")
+}
 
 export function getAudioContext(): AudioContext {
   if (!sharedContext) {
@@ -95,6 +112,10 @@ export class PcmPlayer {
   private currentSource: AudioBufferSourceNode | null = null
   onDrain: (() => void) | null = null
 
+  constructor() {
+    activePlayers.add(this)
+  }
+
   async enqueueBase64(base64: string): Promise<void> {
     if (!base64) return
     const pcm16 = base64ToPcm16(base64)
@@ -151,6 +172,7 @@ export class PcmPlayer {
   stop(): void {
     this.clear()
     this.onDrain = null
+    activePlayers.delete(this)
   }
 }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useRef, useState } from "react"
-import { PcmCapture, PcmPlayer, requestMic, unlockAudio } from "@/lib/pcm-audio"
+import { PcmCapture, PcmPlayer, requestMic, unlockAudio, ttsActive } from "@/lib/pcm-audio"
 import { toolDefinitions, toolHandlers } from "@/lib/tools"
 import { useAppOverlay } from "@/contexts/app-overlay-context"
 
@@ -450,6 +450,10 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
         }
 
         if (msg.type === "response.output_audio.delta" && msg.delta) {
+          if (ttsActive) {
+            console.log("[voice] skipping Grok audio — TTS is active")
+            return
+          }
           console.log("[voice] audio delta:", msg.delta.length, "bytes")
           player.enqueueBase64(msg.delta)
           return

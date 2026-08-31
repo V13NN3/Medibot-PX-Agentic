@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useVoiceEngine } from "@/components/voice/voice-engine"
 import { speak } from "@/lib/tts"
+import { ttsActive } from "@/lib/pcm-audio"
 
 const POLL_INTERVAL = 5000
 
@@ -36,6 +37,7 @@ export function QueueMonitor() {
 
         if (!isNewCall) return
         if (voiceStateRef.current !== "idle") return
+        if (ttsActive) return
 
         router.push("/apps/queue")
 
