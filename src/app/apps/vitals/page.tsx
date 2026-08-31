@@ -114,9 +114,11 @@ function VitalsInner() {
       setVideoSrc(src)
       setTimeout(() => {
         console.log("[vitals] video done:", src)
-        setVideoSrc(null)
-        setPreviewLabel(null)
-        resolve()
+        setTimeout(() => {
+          setVideoSrc(null)
+          setPreviewLabel(null)
+          resolve()
+        }, 1000)
       }, durationMs)
     })
 
