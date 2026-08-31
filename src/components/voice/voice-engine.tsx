@@ -341,6 +341,17 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
           return
         }
 
+        if (msg.type === "response.output_item.added") {
+          const item = msg.item
+          if (item && item.type === "function_call") {
+            functionCallName.current = item.name || ""
+            functionCallId.current = item.call_id || ""
+            functionCallArgs.current = ""
+            console.log("[voice] output_item.added function_call:", item.name, "call_id:", item.call_id)
+          }
+          return
+        }
+
         if (msg.type === "response.function_call_arguments.start") {
           functionCallId.current = msg.call_id || ""
           functionCallName.current = msg.function_name || ""
@@ -355,9 +366,10 @@ GREETING: "Hi! I'm Medibot. What would you like to do?"`,
         }
 
         if (msg.type === "response.function_call_arguments.done") {
-          const name = functionCallName.current || msg.function_name || ""
+          console.log("[voice] function_call DONE RAW MSG:", JSON.stringify({ function_name: msg.function_name, call_id: msg.call_id, name: msg.name, arguments: msg.arguments, keys: Object.keys(msg) }))
+          const name = functionCallName.current || msg.function_name || msg.name || ""
           const callId = functionCallId.current || msg.call_id || ""
-          const raw = functionCallArgs.current || ""
+          const raw = functionCallArgs.current || msg.arguments || ""
 
           console.log("[voice] function_call done:", name, "call_id:", callId, "args:", raw)
 

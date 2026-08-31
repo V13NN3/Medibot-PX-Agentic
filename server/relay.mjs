@@ -39,6 +39,12 @@ export function handleRelayConnection(clientWs) {
       if (msg.type !== "input_audio_buffer.append" && msg.type !== "response.output_audio.delta") {
         console.log("[relay] Grok → browser:", msg.type)
       }
+      if (msg.type === "response.function_call_arguments.done") {
+        console.log("[relay] FUNCTION_CALL DONE PAYLOAD:", JSON.stringify({ call_id: msg.call_id, function_name: msg.function_name, name: msg.name, arguments: msg.arguments, output: msg.output, item: msg.item }))
+      }
+      if (msg.type === "response.output_item.added") {
+        console.log("[relay] OUTPUT_ITEM_ADDED:", JSON.stringify({ type: msg.item?.type, name: msg.item?.name, call_id: msg.item?.call_id }))
+      }
       if (msg.type === "ping") {
         grokWs.send(JSON.stringify({ type: "pong" }))
       }
