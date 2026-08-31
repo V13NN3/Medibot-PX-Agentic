@@ -3,8 +3,9 @@ import WebSocket from "ws"
 import { pathToFileURL } from "url"
 
 const RELAY_PORT = parseInt(process.env.RELAY_PORT || "3002", 10)
-const GROK_URL = process.env.GROK_VOICE_API_URL || "wss://api.x.ai/v1/realtime"
 const GROK_KEY = process.env.GROK_VOICE_API_KEY || ""
+const GROK_MODEL = process.env.GROK_VOICE_MODEL || "grok-4.6"
+const GROK_URL = `wss://api.x.ai/v1/realtime?model=${GROK_MODEL}`
 
 export const relayIsMain =
   process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
