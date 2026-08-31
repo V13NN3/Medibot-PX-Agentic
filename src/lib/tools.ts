@@ -18,6 +18,7 @@ async function apiGet(path: string): Promise<Record<string, unknown>> {
 
 export const toolDefinitions = [
   {
+    type: "function",
     name: "search_patients",
     description: "Search for patients by name. Returns a list of matching patients. Use this first when the patient gives their name, then ask for DOB if multiple results.",
     parameters: {
@@ -29,6 +30,7 @@ export const toolDefinitions = [
     },
   },
   {
+    type: "function",
     name: "lookup_patient",
     description: "Look up an existing patient by name AND date of birth for exact match. Use after search_patients to verify identity.",
     parameters: {
@@ -41,6 +43,7 @@ export const toolDefinitions = [
     },
   },
   {
+    type: "function",
     name: "fill_patient_field",
     description: "Fill a single field on the patient registration form in real-time. Use this to fill fields one-by-one as you collect information from the patient. Call navigate_to('patient') first to open the form, then call this for each piece of information the patient gives you.",
     parameters: {
@@ -57,6 +60,7 @@ export const toolDefinitions = [
     },
   },
   {
+    type: "function",
     name: "create_patient",
     description: "Save the patient record to the database. Call this ONLY after all required fields (name, dob, sex) have been filled using fill_patient_field.",
     parameters: {
@@ -72,11 +76,13 @@ export const toolDefinitions = [
     },
   },
   {
+    type: "function",
     name: "read_vitals",
     description: "Read patient vitals from connected sensors (weight, height, temperature, oxygen saturation, heart rate)",
     parameters: { type: "object", properties: {} },
   },
   {
+    type: "function",
     name: "measure_vital",
     description: "Trigger a single vitals measurement on the Vitals app (weight scale, height, temperature, oxygen, or heart rate). Call this while guiding the patient through each measurement step.",
     parameters: {
@@ -92,6 +98,7 @@ export const toolDefinitions = [
     },
   },
   {
+    type: "function",
     name: "find_doctor",
     description: "Search for available doctors by name or specialty",
     parameters: {
@@ -103,6 +110,7 @@ export const toolDefinitions = [
     },
   },
   {
+    type: "function",
     name: "get_queue_number",
     description: "Get a queue number for the patient and print their ticket. Requires patient_name and doctor_name from the workflow context.",
     parameters: {
@@ -115,11 +123,13 @@ export const toolDefinitions = [
     },
   },
   {
+    type: "function",
     name: "check_now_serving",
     description: "Check the current 'Now Serving' number",
     parameters: { type: "object", properties: {} },
   },
   {
+    type: "function",
     name: "book_appointment",
     description: "Book an appointment with a doctor directly. Collect patient name, doctor name, date, time, and reason from the patient first, then call this.",
     parameters: {
@@ -135,16 +145,19 @@ export const toolDefinitions = [
     },
   },
   {
+    type: "function",
     name: "capture_lab_photo",
     description: "Trigger the camera to capture a photo of the lab result paper that the patient is holding up. Use this after telling the patient to hold their paper up to the camera.",
     parameters: { type: "object", properties: {} },
   },
   {
+    type: "function",
     name: "interpret_lab_results",
     description: "Interpret the captured lab result image and explain the values to the patient. Call this after capture_lab_photo succeeds.",
     parameters: { type: "object", properties: {} },
   },
   {
+    type: "function",
     name: "log_symptom_check",
     description: "Log a symptom check conversation after discussing symptoms with the patient. Call this after the patient describes their symptoms and you've given information.",
     parameters: {
@@ -157,6 +170,7 @@ export const toolDefinitions = [
     },
   },
   {
+    type: "function",
     name: "navigate_to",
     description: "Navigate the screen to a specific app page, optionally with a search term to auto-fill",
     parameters: {
