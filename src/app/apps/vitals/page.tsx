@@ -44,6 +44,17 @@ function formatHeightFtIn(cm: number): string {
   return `${ft}'${inch}"`
 }
 
+function calcBMI(heightCm: number, weightKg: number): { bmi: number; label: string; color: string; border: string } | null {
+  if (!heightCm || !weightKg || heightCm <= 0 || weightKg <= 0) return null
+  const heightM = heightCm / 100
+  const bmi = weightKg / (heightM * heightM)
+  const rounded = Math.round(bmi * 10) / 10
+  if (bmi < 18.5) return { bmi: rounded, label: "Underweight", color: "text-blue-600", border: "border-blue-200 bg-blue-50" }
+  if (bmi < 25) return { bmi: rounded, label: "Normal", color: "text-green-700", border: "border-green-200 bg-green-50" }
+  if (bmi < 30) return { bmi: rounded, label: "Overweight", color: "text-amber-600", border: "border-amber-200 bg-amber-50" }
+  return { bmi: rounded, label: "Obese", color: "text-red-600", border: "border-red-200 bg-red-50" }
+}
+
 function VitalsInner() {
   const searchParams = useAppParams()
   const { openApp, closeApp } = useAppOverlay()
@@ -692,7 +703,7 @@ function VitalsInner() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {MEASUREMENTS.map((m) => {
           const isMeasuring = measuring.includes(m.key)
           const isBusy = isMeasuring || (m.key === "height" && busy) || (m.key === "oxygen" && o2Phase !== "idle") || (m.key === "heart_rate" && hrPhase !== "idle") || (m.key === "weight" && weightPhase !== "idle") || (m.key === "temperature" && tempPhase !== "idle")
@@ -756,6 +767,27 @@ function VitalsInner() {
             </Card>
           )
         })}
+        {(() => {
+          const bmiResult = calcBMI(values.height ?? 0, values.weight ?? 0)
+          return (
+            <Card padding="md" className="flex flex-col items-center gap-0.5 text-center py-2">
+              <span className="text-xl">📊</span>
+              <p className="text-[11px] text-gray-500">BMI</p>
+              {bmiResult ? (
+                <div className="flex flex-col items-center gap-0.5">
+                  <p className="text-base font-bold text-foreground tabular-nums">
+                    {bmiResult.bmi.toFixed(1)} <span className="text-xs font-medium text-gray-400">kg/m²</span>
+                  </p>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${bmiResult.border} ${bmiResult.color}`}>
+                    {bmiResult.label}
+                  </span>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">--</p>
+              )}
+            </Card>
+          )
+        })()}
       </div>
 
       {heightPhase === "instruct" && (
