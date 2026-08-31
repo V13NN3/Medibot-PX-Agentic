@@ -3,11 +3,11 @@
   "functions": {
     "/api/camera/analyze": {},
     "/api/camera/capture": {},
-    "/api/camera/release": {},
-    "/api/printer/status": {},
     "/api/vitals/heartrate": {},
+    "/api/printer/status": {},
     "/api/vitals/o2": {},
     "/api/vitals/pulse": {},
+    "/api/camera/release": {},
     "/api/camera/stream": {}
   }
 }
