@@ -30,8 +30,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/_not-found": {
-      "initialStatus": 404,
+    "/apps/diagnostics": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -44,8 +43,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/_not-found",
-      "dataRoute": "/_not-found.rsc",
+      "srcRoute": "/apps/diagnostics",
+      "dataRoute": "/apps/diagnostics.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -79,7 +78,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/appointment": {
+    "/apps/labs": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -92,8 +91,33 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/appointment",
-      "dataRoute": "/apps/appointment.rsc",
+      "srcRoute": "/apps/labs",
+      "dataRoute": "/apps/labs.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/_not-found": {
+      "initialStatus": 404,
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/_not-found",
+      "dataRoute": "/_not-found.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -127,6 +151,30 @@
         "x-next-revalidate-tag-token"
       ]
     },
+    "/apps/settings": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/apps/settings",
+      "dataRoute": "/apps/settings.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
     "/apps/rx": {
       "experimentalBypassFor": [
         {
@@ -151,7 +199,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/settings": {
+    "/apps/find-doctor": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -164,8 +212,32 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/settings",
-      "dataRoute": "/apps/settings.rsc",
+      "srcRoute": "/apps/find-doctor",
+      "dataRoute": "/apps/find-doctor.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/apps/appointment": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/apps/appointment",
+      "dataRoute": "/apps/appointment.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -199,78 +271,6 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/labs": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/labs",
-      "dataRoute": "/apps/labs.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
-    "/apps/vitals": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/vitals",
-      "dataRoute": "/apps/vitals.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
-    "/apps/diagnostics": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/diagnostics",
-      "dataRoute": "/apps/diagnostics.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
     "/": {
       "experimentalBypassFor": [
         {
@@ -295,7 +295,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/find-doctor": {
+    "/apps/vitals": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -308,8 +308,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/find-doctor",
-      "dataRoute": "/apps/find-doctor.rsc",
+      "srcRoute": "/apps/vitals",
+      "dataRoute": "/apps/vitals.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
