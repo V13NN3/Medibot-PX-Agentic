@@ -55,7 +55,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/appointment": {
+    "/apps/diagnostics": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -68,8 +68,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/appointment",
-      "dataRoute": "/apps/appointment.rsc",
+      "srcRoute": "/apps/diagnostics",
+      "dataRoute": "/apps/diagnostics.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -79,7 +79,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/find-doctor": {
+    "/apps/patient": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -92,8 +92,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/find-doctor",
-      "dataRoute": "/apps/find-doctor.rsc",
+      "srcRoute": "/apps/patient",
+      "dataRoute": "/apps/patient.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -103,7 +103,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/labs": {
+    "/apps/settings": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -116,8 +116,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/labs",
-      "dataRoute": "/apps/labs.rsc",
+      "srcRoute": "/apps/settings",
+      "dataRoute": "/apps/settings.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -175,7 +175,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/settings": {
+    "/apps/appointment": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -188,8 +188,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/settings",
-      "dataRoute": "/apps/settings.rsc",
+      "srcRoute": "/apps/appointment",
+      "dataRoute": "/apps/appointment.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -199,7 +199,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/diagnostics": {
+    "/apps/labs": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -212,8 +212,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/diagnostics",
-      "dataRoute": "/apps/diagnostics.rsc",
+      "srcRoute": "/apps/labs",
+      "dataRoute": "/apps/labs.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -223,7 +223,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/patient": {
+    "/apps/telehealth": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -236,8 +236,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/patient",
-      "dataRoute": "/apps/patient.rsc",
+      "srcRoute": "/apps/telehealth",
+      "dataRoute": "/apps/telehealth.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -271,7 +271,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/apps/telehealth": {
+    "/apps/find-doctor": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -284,8 +284,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/apps/telehealth",
-      "dataRoute": "/apps/telehealth.rsc",
+      "srcRoute": "/apps/find-doctor",
+      "dataRoute": "/apps/find-doctor.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
