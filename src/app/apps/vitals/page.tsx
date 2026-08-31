@@ -314,17 +314,16 @@ function VitalsInner() {
 
   const readPulseWithFallback = async (gender: "male" | "female" | "unknown"): Promise<{ o2: number; hr: number }> => {
     try {
-      const [o2Res, hrRes] = await Promise.all([
-        fetch("/api/vitals/o2").then((r) => r.ok ? r.json() : null).catch(() => null),
-        fetch("/api/vitals/heartrate").then((r) => r.ok ? r.json() : null).catch(() => null),
-      ])
-      const o2 = (o2Res?.o2_percentage && o2Res.o2_percentage > 0) ? o2Res.o2_percentage : fallbackO2(gender)
-      const hr = (hrRes?.heart_rate && hrRes.heart_rate > 0) ? hrRes.heart_rate : fallbackHR(gender)
-      console.log(`[vitals] pulse: O2=${o2}% HR=${hr}bpm`)
-      return { o2, hr }
-    } catch {
-      return { o2: fallbackO2(gender), hr: fallbackHR(gender) }
-    }
+      const res = await fetch("/api/vitals/pulse")
+      if (res.ok) {
+        const data = await res.json()
+        const o2 = (data.o2_percentage && data.o2_percentage > 0) ? data.o2_percentage : fallbackO2(gender)
+        const hr = (data.heart_rate && data.heart_rate > 0) ? data.heart_rate : fallbackHR(gender)
+        console.log(`[vitals] pulse auto: O2=${o2.toFixed(1)}% HR=${hr}bpm`)
+        return { o2, hr }
+      }
+    } catch {}
+    return { o2: fallbackO2(gender), hr: fallbackHR(gender) }
   }
 
   const measureHeight = async (): Promise<{ cm: number; img: string } | null> => {
@@ -394,27 +393,24 @@ function VitalsInner() {
     await countUp(5)
 
     setPulsePhase("measuring")
-    console.log("[vitals] pulse: reading O2 + HR sensors...")
+    console.log("[vitals] pulse: reading from /api/vitals/pulse...")
     let o2Val = 0
     let hrVal = 0
 
     try {
-      const [o2Res, hrRes] = await Promise.all([
-        fetch("/api/vitals/o2").then((r) => r.ok ? r.json() : null).catch(() => null),
-        fetch("/api/vitals/heartrate").then((r) => r.ok ? r.json() : null).catch(() => null),
-      ])
-      if (o2Res?.o2_percentage && o2Res.o2_percentage > 0) {
-        o2Val = o2Res.o2_percentage
-      }
-      if (hrRes?.heart_rate && hrRes.heart_rate > 0) {
-        hrVal = hrRes.heart_rate
+      const res = await fetch("/api/vitals/pulse")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.o2_percentage && data.o2_percentage > 0) o2Val = data.o2_percentage
+        if (data.heart_rate && data.heart_rate > 0) hrVal = data.heart_rate
+        console.log(`[vitals] pulse: raw O2=${data.o2_percentage?.toFixed(1)}% HR=${data.heart_rate}bpm`)
       }
     } catch {}
 
     if (o2Val <= 0) o2Val = fallbackO2("unknown")
     if (hrVal <= 0) hrVal = fallbackHR("unknown")
 
-    console.log(`[vitals] pulse: O2=${o2Val}% HR=${hrVal}bpm`)
+    console.log(`[vitals] pulse: O2=${o2Val.toFixed(1)}% HR=${hrVal}bpm`)
     setValues((prev) => ({ ...prev, oxygen: o2Val, heart_rate: hrVal }))
     speak(`Oxygen ${o2Val.toFixed(0)} percent. Heart rate ${hrVal}.`)
     setPulsePhase("idle")

@@ -206,3 +206,58 @@ export function fallbackWeight(estimatedKg: number): number {
   const offset = Math.random() * 6 - 3
   return Math.round((estimatedKg + offset) * 10) / 10
 }
+
+const PULSE_I2C_ADDR = 0x64
+const PULSE_I2C_BUS = 10
+
+function readPulseSync(bus: any): { o2_percentage: number; heart_rate: number; raw_adc_o2: number; raw_adc_hr: number } | null {
+  try {
+    const buf = Buffer.alloc(4)
+    const result = bus.readI2cBlockSync(PULSE_I2C_ADDR, 0x00, 4, buf)
+    if (!result || !result.buffer) return null
+    const raw_o2 = (result.buffer[0] << 8) | result.buffer[1]
+    const raw_hr = (result.buffer[2] << 8) | result.buffer[3]
+    const o2_percentage = (raw_o2 / O2_BASELINE_ADC) * O2_BASELINE_PCT
+    const heart_rate = raw_hr > 0 ? Math.round((raw_hr / 1024.0) * 180) : 0
+    return { o2_percentage, heart_rate, raw_adc_o2: raw_o2, raw_adc_hr: raw_hr }
+  } catch {
+    try {
+      const b0 = bus.readByteSync(PULSE_I2C_ADDR, 0x00)
+      const b1 = bus.readByteSync(PULSE_I2C_ADDR, 0x01)
+      const b2 = bus.readByteSync(PULSE_I2C_ADDR, 0x02)
+      const b3 = bus.readByteSync(PULSE_I2C_ADDR, 0x03)
+      const raw_o2 = (b0 << 8) | b1
+      const raw_hr = (b2 << 8) | b3
+      const o2_percentage = (raw_o2 / O2_BASELINE_ADC) * O2_BASELINE_PCT
+      const heart_rate = raw_hr > 0 ? Math.round((raw_hr / 1024.0) * 180) : 0
+      return { o2_percentage, heart_rate, raw_adc_o2: raw_o2, raw_adc_hr: raw_hr }
+    } catch {
+      return null
+    }
+  }
+}
+
+export async function readPulseSensor(): Promise<{ o2_percentage: number; heart_rate: number; raw_adc_o2: number; raw_adc_hr: number } | null> {
+  const isRpi = process.platform === "linux" && process.arch === "arm64"
+  if (!isRpi) return { o2_percentage: 97.8, heart_rate: 73, raw_adc_o2: O2_BASELINE_ADC, raw_adc_hr: 0 }
+
+  const i2c = await getI2c()
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    let bus: any = null
+    try {
+      bus = i2c.openSync(PULSE_I2C_BUS)
+      const result = readPulseSync(bus)
+      if (result) {
+        console.log(`[sensors] Pulse read OK on bus ${PULSE_I2C_BUS}: O2=${result.o2_percentage.toFixed(1)}% HR=${result.heart_rate}bpm raw_o2=${result.raw_adc_o2} raw_hr=${result.raw_adc_hr}`)
+        return result
+      }
+    } catch (err) {
+      console.warn(`[sensors] Pulse bus ${PULSE_I2C_BUS} attempt ${attempt}/3:`, err instanceof Error ? err.message : err)
+    } finally {
+      try { bus?.closeSync() } catch {}
+    }
+    if (attempt < 3) await new Promise((r) => setTimeout(r, 300))
+  }
+  console.error("[sensors] Pulse I2C: all attempts exhausted on bus", PULSE_I2C_BUS)
+  return null
+}
