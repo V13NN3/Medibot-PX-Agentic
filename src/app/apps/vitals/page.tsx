@@ -73,6 +73,7 @@ function VitalsInner() {
   const [tempErr, setTempErr] = useState("")
   const [videoSrc, setVideoSrc] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [imgSrc, setImgSrc] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [printMsg, setPrintMsg] = useState("")
@@ -117,6 +118,17 @@ function VitalsInner() {
         })
       }
       requestAnimationFrame(checkReady)
+    })
+
+  const showImage = (src: string, durationMs: number) =>
+    new Promise<void>((resolve) => {
+      console.log("[vitals] showing image:", src, "for", durationMs, "ms")
+      setImgSrc(src)
+      setTimeout(() => {
+        console.log("[vitals] image display done:", src)
+        setImgSrc(null)
+        resolve()
+      }, durationMs)
     })
 
   const runCountdown = async () => {
@@ -328,7 +340,7 @@ function VitalsInner() {
   const measureHeight = async (): Promise<{ cm: number; img: string } | null> => {
     if (heightPhase === "instruct" || heightPhase === "countdown" || heightPhase === "measuring") return null
     setHeightErr("")
-    await playVideo("/height.mp4")
+    await showImage("/height-guide.png", 4000)
     setHeightPhase("instruct")
     console.log("[vitals] height: instructing patient to step back")
     speak("Please step back 3 steps from the camera and stand straight with your feet on the ground.")
@@ -818,6 +830,12 @@ function VitalsInner() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
           <video ref={videoRef} src={videoSrc} muted playsInline
             className="max-w-full max-h-full rounded-2xl shadow-2xl" />
+        </div>
+      )}
+
+      {imgSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={(e) => e.stopPropagation()}>
+          <img src={imgSrc} className="max-w-full max-h-full rounded-2xl shadow-2xl" />
         </div>
       )}
     </div>
